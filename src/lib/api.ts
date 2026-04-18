@@ -66,6 +66,8 @@ export interface Product {
   media: ProductMedia[];
   createdAt: string;
   updatedAt: string;
+  /** Soft-delete timestamp. Present only when the product has been archived. */
+  deletedAt?: string | null;
 }
 
 export interface CreateProductDto {
@@ -317,6 +319,8 @@ export const productsApi = {
     isFeatured?: boolean;
     sortBy?: string;
     sortOrder?: string;
+    withDeleted?: boolean;
+    deletedOnly?: boolean;
   }) => {
     const q = new URLSearchParams();
     if (params?.page) q.set("page", String(params.page));
@@ -327,12 +331,16 @@ export const productsApi = {
     if (params?.isFeatured !== undefined) q.set("isFeatured", String(params.isFeatured));
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
+    if (params?.withDeleted) q.set("withDeleted", "true");
+    if (params?.deletedOnly) q.set("deletedOnly", "true");
     const qs = q.toString();
     return request<ApiResponse<PaginatedResponse<Product>>>(`/products${qs ? `?${qs}` : ""}`);
   },
 
-  get: (id: string) =>
-    request<ApiResponse<Product>>(`/products/${id}`),
+  get: (id: string, opts?: { withDeleted?: boolean }) => {
+    const qs = opts?.withDeleted ? "?withDeleted=true" : "";
+    return request<ApiResponse<Product>>(`/products/${id}${qs}`);
+  },
 
   create: (dto: CreateProductDto) =>
     request<ApiResponse<Product>>("/products", {
@@ -346,11 +354,109 @@ export const productsApi = {
       body: JSON.stringify(dto),
     }),
 
+  bulkUpdate: (dto: {
+    ids: string[];
+    isActive?: boolean;
+    isFeatured?: boolean;
+    categoryId?: string;
+  }) =>
+    request<ApiResponse<{ updated: number }>>("/products/bulk", {
+      method: "PATCH",
+      body: JSON.stringify(dto),
+    }),
+
   delete: (id: string) =>
     request<void>(`/products/${id}`, { method: "DELETE" }),
 
   restore: (id: string) =>
     request<ApiResponse<Product>>(`/products/${id}/restore`, { method: "PATCH" }),
+};
+
+// ── Media API ────────────────────────────────────────────────
+
+export interface PresignResult {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+  expiresIn: number;
+  maxBytes: number;
+}
+
+export const MEDIA_ALLOWED_MIME = ["image/jpeg", "image/png"] as const;
+export type MediaMime = (typeof MEDIA_ALLOWED_MIME)[number];
+export const MEDIA_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export const mediaApi = {
+  presign: (dto: { filename: string; contentType: MediaMime; size: number; productId?: string }) =>
+    request<ApiResponse<PresignResult>>("/media/presign", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    }),
+
+  confirm: (dto: { productId: string; key: string; altText?: string; sortOrder?: number }) =>
+    request<ApiResponse<ProductMedia>>("/media/confirm", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    }),
+
+  reorder: (productId: string, orderedIds: string[]) =>
+    request<ApiResponse<ProductMedia[]>>(`/media/product/${productId}/reorder`, {
+      method: "PATCH",
+      body: JSON.stringify({ orderedIds }),
+    }),
+
+  delete: (mediaId: string) =>
+    request<void>(`/media/${mediaId}`, { method: "DELETE" }),
+
+  /**
+   * End-to-end helper: validate, presign, PUT to S3, confirm.
+   * Throws if the file is invalid or any step fails. Callers can show
+   * progress by watching the onProgress callback.
+   */
+  async uploadFile(
+    file: File,
+    productId: string,
+    opts: { altText?: string; onProgress?: (pct: number) => void } = {},
+  ): Promise<ProductMedia> {
+    if (!(MEDIA_ALLOWED_MIME as readonly string[]).includes(file.type)) {
+      throw new Error("Only JPG and PNG images are supported");
+    }
+    if (file.size > MEDIA_MAX_BYTES) {
+      throw new Error("File is larger than 10 MB");
+    }
+
+    const presign = await this.presign({
+      filename: file.name,
+      contentType: file.type as MediaMime,
+      size: file.size,
+      productId,
+    });
+
+    // XHR so we can report progress
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", presign.data.uploadUrl);
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && opts.onProgress) {
+          opts.onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+      };
+      xhr.onerror = () => reject(new Error("Upload failed (network error)"));
+      xhr.send(file);
+    });
+
+    const confirmed = await this.confirm({
+      productId,
+      key: presign.data.key,
+      altText: opts.altText,
+    });
+    return confirmed.data;
+  },
 };
 
 // ── Categories API ───────────────────────────────────────────
@@ -374,6 +480,12 @@ export const categoriesApi = {
   update: (id: string, dto: Partial<CreateCategoryDto>) =>
     request<ApiResponse<Category>>(`/categories/${id}`, {
       method: "PUT",
+      body: JSON.stringify(dto),
+    }),
+
+  move: (id: string, dto: { parentId?: string | null; sortOrder?: number }) =>
+    request<ApiResponse<Category>>(`/categories/${id}/move`, {
+      method: "PATCH",
       body: JSON.stringify(dto),
     }),
 
