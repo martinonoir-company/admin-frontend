@@ -6,6 +6,7 @@ import { ArrowLeft, Edit2, Trash2, Loader2 } from "lucide-react";
 import { productsApi, inventoryApi, formatNgn, formatUsd, Product, StockLevel } from "@/lib/api";
 import { StatusBadge, BoolBadge } from "@/components/StatusBadge";
 import { Skeleton, SkeletonCard } from "@/components/Skeleton";
+import { MediaGallery } from "@/components/MediaGallery";
 import { useToast } from "@/lib/toast-context";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -110,6 +111,9 @@ export default function ProductDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main */}
         <div className="lg:col-span-2 space-y-5">
+          {/* Media */}
+          <MediaGallery productId={id} initialMedia={product.media ?? []} />
+
           {/* Description */}
           <div className="admin-card p-5">
             <h2 className="text-sm font-semibold text-ink-300 mb-3">Description</h2>

@@ -28,6 +28,10 @@ interface DataTableProps<TData extends RowData> {
   onSortingChange?: (s: SortingState) => void;
   emptyMessage?: string;
   onRowClick?: (row: TData) => void;
+  // Row selection (opt-in)
+  getRowId?: (row: TData) => string;
+  selectedIds?: string[];
+  onSelectedIdsChange?: (ids: string[]) => void;
 }
 
 export function DataTable<TData extends RowData>({
@@ -43,10 +47,80 @@ export function DataTable<TData extends RowData>({
   onSortingChange,
   emptyMessage = "No data found",
   onRowClick,
+  getRowId,
+  selectedIds,
+  onSelectedIdsChange,
 }: DataTableProps<TData>) {
+  const selectionEnabled = !!(getRowId && onSelectedIdsChange);
+  const selectedSet = React.useMemo(() => new Set(selectedIds ?? []), [selectedIds]);
+
+  const toggleOne = React.useCallback(
+    (id: string) => {
+      if (!onSelectedIdsChange) return;
+      const next = new Set(selectedIds ?? []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      onSelectedIdsChange(Array.from(next));
+    },
+    [selectedIds, onSelectedIdsChange],
+  );
+
+  const pageIds = React.useMemo(
+    () => (getRowId ? data.map(getRowId) : []),
+    [data, getRowId],
+  );
+  const allOnPageSelected =
+    selectionEnabled && pageIds.length > 0 && pageIds.every((id) => selectedSet.has(id));
+  const someOnPageSelected =
+    selectionEnabled && !allOnPageSelected && pageIds.some((id) => selectedSet.has(id));
+
+  const toggleAllOnPage = () => {
+    if (!onSelectedIdsChange) return;
+    const next = new Set(selectedIds ?? []);
+    if (allOnPageSelected) pageIds.forEach((id) => next.delete(id));
+    else pageIds.forEach((id) => next.add(id));
+    onSelectedIdsChange(Array.from(next));
+  };
+
+  const displayColumns: ColumnDef<TData, unknown>[] = selectionEnabled
+    ? [
+        {
+          id: "__select__",
+          header: () => (
+            <input
+              type="checkbox"
+              aria-label="Select all on page"
+              ref={(el) => {
+                if (el) el.indeterminate = someOnPageSelected;
+              }}
+              checked={allOnPageSelected}
+              onChange={toggleAllOnPage}
+              onClick={(e) => e.stopPropagation()}
+              className="w-4 h-4 rounded border-ink-600 bg-ink-800 text-primary-600 focus:ring-1 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
+            />
+          ),
+          cell: ({ row }) => {
+            const id = getRowId!(row.original);
+            return (
+              <input
+                type="checkbox"
+                aria-label="Select row"
+                checked={selectedSet.has(id)}
+                onChange={() => toggleOne(id)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-4 h-4 rounded border-ink-600 bg-ink-800 text-primary-600 focus:ring-1 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
+              />
+            );
+          },
+          enableSorting: false,
+        },
+        ...columns,
+      ]
+    : columns;
+
   const table = useReactTable({
     data,
-    columns,
+    columns: displayColumns,
     state: { sorting },
     onSortingChange: onSortingChange
       ? (updater) => {
@@ -100,7 +174,7 @@ export function DataTable<TData extends RowData>({
           <tbody>
             {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="text-center py-16 text-ink-500">
+                <td colSpan={displayColumns.length} className="text-center py-16 text-ink-500">
                   {emptyMessage}
                 </td>
               </tr>
