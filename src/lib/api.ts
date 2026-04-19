@@ -546,6 +546,129 @@ export const inventoryApi = {
 
 // ── Staff types ───────────────────────────────────────────────
 
+/**
+ * Keep in sync with the Permission enum in
+ * `server/src/modules/users/entities/role.entity.ts`.
+ */
+export const ALL_PERMISSIONS = [
+  "users:read",
+  "users:create",
+  "users:update",
+  "users:delete",
+  "products:read",
+  "products:create",
+  "products:update",
+  "products:delete",
+  "categories:read",
+  "categories:create",
+  "categories:update",
+  "categories:delete",
+  "orders:read",
+  "orders:create",
+  "orders:update",
+  "orders:cancel",
+  "orders:refund",
+  "inventory:read",
+  "inventory:adjust",
+  "inventory:transfer",
+  "payments:read",
+  "payments:refund",
+  "coupons:read",
+  "coupons:create",
+  "coupons:update",
+  "coupons:delete",
+  "customers:read",
+  "customers:update",
+  "analytics:view",
+  "reports:export",
+  "audit:read",
+  "settings:read",
+  "settings:update",
+  "pos:sell",
+  "pos:manage_shifts",
+  "pos:void",
+  "staff:read",
+  "staff:create",
+  "staff:update",
+  "staff:delete",
+] as const;
+export type Permission = (typeof ALL_PERMISSIONS)[number];
+
+export const PERMISSION_GROUPS: Array<{
+  label: string;
+  permissions: Permission[];
+}> = [
+  {
+    label: "Users",
+    permissions: ["users:read", "users:create", "users:update", "users:delete"],
+  },
+  {
+    label: "Products",
+    permissions: [
+      "products:read",
+      "products:create",
+      "products:update",
+      "products:delete",
+    ],
+  },
+  {
+    label: "Categories",
+    permissions: [
+      "categories:read",
+      "categories:create",
+      "categories:update",
+      "categories:delete",
+    ],
+  },
+  {
+    label: "Orders",
+    permissions: [
+      "orders:read",
+      "orders:create",
+      "orders:update",
+      "orders:cancel",
+      "orders:refund",
+    ],
+  },
+  {
+    label: "Inventory",
+    permissions: ["inventory:read", "inventory:adjust", "inventory:transfer"],
+  },
+  {
+    label: "Payments",
+    permissions: ["payments:read", "payments:refund"],
+  },
+  {
+    label: "Coupons",
+    permissions: [
+      "coupons:read",
+      "coupons:create",
+      "coupons:update",
+      "coupons:delete",
+    ],
+  },
+  {
+    label: "Customers",
+    permissions: ["customers:read", "customers:update"],
+  },
+  {
+    label: "Analytics & Reports",
+    permissions: ["analytics:view", "reports:export", "audit:read"],
+  },
+  {
+    label: "Settings",
+    permissions: ["settings:read", "settings:update"],
+  },
+  {
+    label: "POS",
+    permissions: ["pos:sell", "pos:manage_shifts", "pos:void"],
+  },
+  {
+    label: "Staff",
+    permissions: ["staff:read", "staff:create", "staff:update", "staff:delete"],
+  },
+];
+
 export interface StaffMember {
   id: string;
   firstName: string;
@@ -558,25 +681,42 @@ export interface StaffMember {
   lastLoginAt?: string;
   createdAt: string;
   isActive: boolean;
+  suspendedAt?: string | null;
+  permissions: Permission[];
 }
 
 // ── Staff API ─────────────────────────────────────────────────
 
 export const staffApi = {
-  list: (params?: { page?: number; limit?: number; search?: string; role?: string }) => {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    withDeleted?: boolean;
+    suspendedOnly?: boolean;
+  }) => {
     const q = new URLSearchParams();
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.search) q.set("search", params.search);
     if (params?.role) q.set("role", params.role);
+    if (params?.withDeleted) q.set("withDeleted", "true");
+    if (params?.suspendedOnly) q.set("suspendedOnly", "true");
     const qs = q.toString();
-    return request<ApiResponse<PaginatedResponse<StaffMember>>>(`/staff${qs ? `?${qs}` : ""}`);
+    return request<ApiResponse<PaginatedResponse<StaffMember>>>(
+      `/staff${qs ? `?${qs}` : ""}`,
+    );
   },
 
-  get: (id: string) =>
-    request<ApiResponse<StaffMember>>(`/staff/${id}`),
+  get: (id: string) => request<ApiResponse<StaffMember>>(`/staff/${id}`),
 
-  create: (dto: { firstName: string; lastName: string; email: string; role: string }) =>
+  create: (dto: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  }) =>
     request<ApiResponse<StaffMember>>("/staff", {
       method: "POST",
       body: JSON.stringify(dto),
@@ -588,11 +728,46 @@ export const staffApi = {
       body: JSON.stringify({ role }),
     }),
 
-  deactivate: (id: string) =>
-    request<void>(`/staff/${id}`, { method: "DELETE" }),
+  /** Replace the entire per-user permission list. */
+  replacePermissions: (id: string, permissions: Permission[]) =>
+    request<ApiResponse<StaffMember>>(`/staff/${id}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({ permissions }),
+    }),
+
+  /** Flip a single permission flag. */
+  togglePermission: (id: string, permission: Permission, granted: boolean) =>
+    request<ApiResponse<StaffMember>>(`/staff/${id}/permissions`, {
+      method: "PATCH",
+      body: JSON.stringify({ permission, granted }),
+    }),
+
+  enableAllPermissions: (id: string) =>
+    request<ApiResponse<StaffMember>>(
+      `/staff/${id}/permissions/enable-all`,
+      { method: "POST" },
+    ),
+
+  disableAllPermissions: (id: string) =>
+    request<ApiResponse<StaffMember>>(
+      `/staff/${id}/permissions/disable-all`,
+      { method: "POST" },
+    ),
+
+  /** Suspend (soft-delete) + revoke sessions. */
+  suspend: (id: string) =>
+    request<ApiResponse<{ suspended: true }>>(`/staff/${id}/suspend`, {
+      method: "PATCH",
+    }),
 
   reactivate: (id: string) =>
-    request<ApiResponse<StaffMember>>(`/staff/${id}/reactivate`, { method: "PATCH" }),
+    request<ApiResponse<StaffMember>>(`/staff/${id}/reactivate`, {
+      method: "PATCH",
+    }),
+
+  /** Hard-delete — irreversible. */
+  delete: (id: string) =>
+    request<void>(`/staff/${id}`, { method: "DELETE" }),
 };
 
 // ── Auth API (admin) ──────────────────────────────────────────
