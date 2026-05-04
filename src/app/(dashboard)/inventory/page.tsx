@@ -96,6 +96,8 @@ function AdjustmentModal({
         kind,
         quantity: qty,
         reason: reason.trim() || undefined,
+        referenceId: `ADJ-${Date.now()}-${row.variantId}`,
+        referenceType: "ADMIN_ADJUSTMENT",
       };
       await inventoryApi.createMovement(dto);
       success(
