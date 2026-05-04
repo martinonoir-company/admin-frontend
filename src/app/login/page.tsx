@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -53,12 +54,16 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-sm animate-fade-in">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-primary-700 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white font-bold text-lg">MN</span>
-          </div>
-          <h1 className="text-2xl font-bold text-ink-100">Martinonoir</h1>
-          <p className="text-sm text-ink-400 mt-1">Admin Portal</p>
+        <div className="flex flex-col items-center mb-8">
+          <Image
+            src="/martino_logo.png"
+            alt="Martino Noir"
+            width={220}
+            height={140}
+            priority
+            className="h-auto w-[200px] invert"
+          />
+          <p className="text-sm text-ink-400 mt-3 tracking-[0.25em] uppercase">Admin Portal</p>
         </div>
 
         {/* Card */}
@@ -129,7 +134,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-ink-600 mt-6">
-          Martinonoir Unified Commerce System
+          Martino Noir Unified Commerce System
         </p>
       </div>
     </div>
