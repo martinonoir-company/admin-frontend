@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Warehouse,
   Users,
+  Building2,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -22,6 +23,8 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
+  /** Optional role allow-list. Undefined = visible to everyone. */
+  allowedRoles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -31,6 +34,13 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Orders",     href: "/orders",     icon: ClipboardList },
   { label: "Inventory",  href: "/inventory",  icon: Warehouse },
   { label: "Staff",      href: "/staff",       icon: Users },
+  {
+    label: "Branches",
+    href: "/branches",
+    icon: Building2,
+    // Visible only to roles that hold BRANCHES_MANAGE.
+    allowedRoles: ["SUPER_ADMIN", "COMPANY_SUPER_ADMIN"],
+  },
   { label: "Settings",   href: "/settings",   icon: Settings },
 ];
 
@@ -78,7 +88,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => {
+          if (!item.allowedRoles) return true;
+          return user?.role ? item.allowedRoles.includes(user.role) : false;
+        }).map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (

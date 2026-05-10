@@ -821,6 +821,165 @@ export const authApi = {
     }),
 };
 
+// ── Branches & Terminals ─────────────────────────────────────
+
+export interface BranchAddress {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  countryCode?: string;
+  postalCode?: string;
+}
+
+export interface Branch {
+  id: string;
+  code: string;
+  name: string;
+  warehouseCode: string;
+  address?: BranchAddress | null;
+  phone?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface Terminal {
+  id: string;
+  code: string;
+  name: string;
+  branchId: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface UserBranchAssignment {
+  id: string;
+  userId: string;
+  branchId: string;
+  createdAt: string;
+}
+
+export interface BranchStaffMember {
+  assignmentId: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  assignedAt: string;
+}
+
+export interface CreateBranchDto {
+  code: string;
+  name: string;
+  warehouseCode: string;
+  address?: BranchAddress;
+  phone?: string;
+}
+
+export interface UpdateBranchDto {
+  name?: string;
+  address?: BranchAddress;
+  phone?: string;
+  isActive?: boolean;
+}
+
+export interface CreateTerminalDto {
+  code: string;
+  name: string;
+}
+
+export interface UpdateTerminalDto {
+  name?: string;
+  isActive?: boolean;
+}
+
+/**
+ * Server returns 409 with a structured payload when a branch / terminal
+ * delete is blocked. The `request` helper stringifies it; callers that
+ * want the structured detail should catch and re-parse the JSON message.
+ */
+export interface BranchDependencyError {
+  error: "BRANCH_HAS_DEPENDENCIES" | "TERMINAL_HAS_ACTIVE_SESSION";
+  message: string;
+  blockers: Record<string, number | boolean>;
+}
+
+export const branchesApi = {
+  list: () =>
+    request<ApiResponse<Branch[]>>("/branches"),
+
+  get: (id: string) =>
+    request<ApiResponse<Branch>>(`/branches/${id}`),
+
+  create: (dto: CreateBranchDto) =>
+    request<ApiResponse<Branch>>("/branches", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    }),
+
+  update: (id: string, dto: UpdateBranchDto) =>
+    request<ApiResponse<Branch>>(`/branches/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(dto),
+    }),
+
+  remove: (id: string) =>
+    request<ApiResponse<{ deletedAt: string }>>(`/branches/${id}`, {
+      method: "DELETE",
+    }),
+
+  listTerminals: (branchId: string) =>
+    request<ApiResponse<Terminal[]>>(`/branches/${branchId}/terminals`),
+
+  createTerminal: (branchId: string, dto: CreateTerminalDto) =>
+    request<ApiResponse<Terminal>>(`/branches/${branchId}/terminals`, {
+      method: "POST",
+      body: JSON.stringify(dto),
+    }),
+
+  updateTerminal: (
+    branchId: string,
+    terminalId: string,
+    dto: UpdateTerminalDto,
+  ) =>
+    request<ApiResponse<Terminal>>(
+      `/branches/${branchId}/terminals/${terminalId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(dto),
+      },
+    ),
+
+  removeTerminal: (branchId: string, terminalId: string) =>
+    request<ApiResponse<{ deletedAt: string }>>(
+      `/branches/${branchId}/terminals/${terminalId}`,
+      { method: "DELETE" },
+    ),
+
+  listStaff: (branchId: string) =>
+    request<ApiResponse<BranchStaffMember[]>>(`/branches/${branchId}/staff`),
+
+  assignStaff: (branchId: string, userId: string) =>
+    request<ApiResponse<UserBranchAssignment>>(
+      `/branches/${branchId}/staff`,
+      {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      },
+    ),
+
+  unassignStaff: (branchId: string, userId: string) =>
+    request<ApiResponse<{ deletedAt: string }>>(
+      `/branches/${branchId}/staff/${userId}`,
+      { method: "DELETE" },
+    ),
+};
+
 // ── Account API ──────────────────────────────────────────────
 
 export const accountApi = {
