@@ -210,7 +210,12 @@ function MovementHistory({ row, onClose }: { row: VariantRow; onClose: () => voi
     async function load() {
       try {
         const res = await inventoryApi.getMovements(row.variantId, 50);
-        setMovements(res.data);
+        // Server returns { data: { items, total } }. Guard against shape drift
+        // so a future API change can't crash the modal with `.map is not a function`.
+        const items = Array.isArray(res.data)
+          ? (res.data as unknown as StockMovement[])
+          : res.data?.items ?? [];
+        setMovements(items);
       } catch (err) {
         error("Failed to load movements", err instanceof Error ? err.message : undefined);
       } finally {

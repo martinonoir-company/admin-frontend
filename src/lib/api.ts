@@ -592,7 +592,7 @@ export const inventoryApi = {
     ),
 
   getMovements: (variantId: string, limit = 50) =>
-    request<ApiResponse<StockMovement[]>>(
+    request<ApiResponse<{ items: StockMovement[]; total: number }>>(
       `/inventory/movements/${variantId}?limit=${limit}`
     ),
 
