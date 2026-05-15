@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3001/api/v1";
+import { API_BASE } from "./env";
 
 // ── Types ────────────────────────────────────────────────────
 

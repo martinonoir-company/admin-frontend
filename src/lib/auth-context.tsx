@@ -8,8 +8,8 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import { API_BASE } from "./env";
 
-const API_BASE = "http://localhost:3001/api/v1";
 const REFRESH_TOKEN_KEY = "mn_admin_refresh_token";
 
 export interface AdminUser {
