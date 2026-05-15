@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Plus, Edit2, Trash2, Loader2, Tag, RefreshCw } from "lucide-react";
-import { categoriesApi, Category, CreateCategoryDto } from "@/lib/api";
+import { useEffect, useState, useCallback, useRef } from "react";
+import Image from "next/image";
+import { Plus, Edit2, Trash2, Loader2, Tag, RefreshCw, Upload, X } from "lucide-react";
+import {
+  categoriesApi,
+  mediaApi,
+  Category,
+  CreateCategoryDto,
+  MEDIA_ALLOWED_MIME,
+  MEDIA_MAX_BYTES,
+} from "@/lib/api";
 import { BoolBadge } from "@/components/StatusBadge";
 import { Modal } from "@/components/Modal";
 import { SkeletonTable } from "@/components/Skeleton";
 import { useToast } from "@/lib/toast-context";
 import { format } from "date-fns";
+
+/** What the form hands back: the DTO plus, if the user picked one, a File to upload. */
+export interface CategoryFormResult {
+  dto: CreateCategoryDto;
+  /** A newly-picked file to upload after the category is saved. */
+  imageFile: File | null;
+  /** true when the user cleared an existing image. */
+  imageCleared: boolean;
+}
 
 function CategoryForm({
   initial,
@@ -17,7 +34,7 @@ function CategoryForm({
   categories,
 }: {
   initial?: Partial<CreateCategoryDto & { id: string }>;
-  onSubmit: (dto: CreateCategoryDto) => Promise<void>;
+  onSubmit: (result: CategoryFormResult) => Promise<void>;
   loading: boolean;
   onCancel: () => void;
   categories: Category[];
@@ -29,6 +46,50 @@ function CategoryForm({
   const [parentId, setParentId] = useState(initial?.parentId ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Image state: an existing URL (edit mode), a newly-picked file + its
+  // object-URL preview, or nothing.
+  const [existingImageUrl, setExistingImageUrl] = useState(initial?.imageUrl ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Revoke the object URL when the preview changes or the form unmounts so
+  // we don't leak blob: URLs.
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
+
+  function handlePickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageError(null);
+    if (!(MEDIA_ALLOWED_MIME as readonly string[]).includes(file.type)) {
+      setImageError("Only JPG and PNG images are supported");
+      return;
+    }
+    if (file.size > MEDIA_MAX_BYTES) {
+      setImageError("Image must be 10 MB or smaller");
+      return;
+    }
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function clearImage() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    setExistingImageUrl("");
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const shownImage = imagePreview ?? existingImageUrl;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
@@ -37,11 +98,16 @@ function CategoryForm({
     setErrors(errs);
     if (Object.keys(errs).length) return;
     await onSubmit({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      sortOrder: Number(sortOrder),
-      isActive,
-      parentId: parentId || undefined,
+      dto: {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        sortOrder: Number(sortOrder),
+        isActive,
+        parentId: parentId || undefined,
+      },
+      imageFile,
+      // The user removed an existing image and didn't pick a replacement.
+      imageCleared: !imageFile && !existingImageUrl && !!initial?.imageUrl,
     });
   }
 
@@ -56,6 +122,54 @@ function CategoryForm({
         <label className="admin-label">Description</label>
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="admin-input resize-none" rows={3} />
       </div>
+
+      {/* Category image */}
+      <div>
+        <label className="admin-label">Category Image</label>
+        {shownImage ? (
+          <div className="relative w-full h-40 rounded-lg overflow-hidden border border-ink-700 bg-ink-800">
+            <Image src={shownImage} alt="Category" fill className="object-cover" sizes="400px" unoptimized />
+            <button
+              type="button"
+              onClick={clearImage}
+              className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-ink-900/80 text-ink-200 hover:text-danger hover:bg-ink-900 transition-colors"
+              title="Remove image"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full h-40 rounded-lg border border-dashed border-ink-600 bg-ink-800/50 flex flex-col items-center justify-center gap-2 text-ink-500 hover:text-ink-300 hover:border-ink-500 transition-colors"
+          >
+            <Upload size={22} />
+            <span className="text-xs font-medium">Click to upload — JPG or PNG, max 10 MB</span>
+          </button>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          onChange={handlePickFile}
+          className="hidden"
+        />
+        {shownImage && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="mt-2 text-xs text-primary-400 hover:text-primary-300 font-medium"
+          >
+            Replace image
+          </button>
+        )}
+        {imageError && <p className="text-xs text-danger mt-1">{imageError}</p>}
+        <p className="text-[11px] text-ink-600 mt-1">
+          Shown on the storefront landing page&apos;s &ldquo;Shop by Category&rdquo; section.
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="admin-label">Sort Order</label>
@@ -113,16 +227,43 @@ export default function CategoriesPage() {
   function openEdit(cat: Category) { setEditTarget(cat); setModalOpen(true); }
   function closeModal() { setModalOpen(false); setEditTarget(null); }
 
-  async function handleSave(dto: CreateCategoryDto) {
+  async function handleSave(result: CategoryFormResult) {
     setSaving(true);
     try {
+      const { dto, imageFile, imageCleared } = result;
+
+      // Step 1 — create or update the category so we have a category id.
+      let category: Category;
       if (editTarget) {
-        await categoriesApi.update(editTarget.id, dto);
-        success("Category updated");
+        const patch: Partial<CreateCategoryDto> = { ...dto };
+        if (imageCleared) patch.imageUrl = "";
+        const res = await categoriesApi.update(editTarget.id, patch);
+        category = res.data;
       } else {
-        await categoriesApi.create(dto);
-        success("Category created");
+        const res = await categoriesApi.create(dto);
+        category = res.data;
       }
+
+      // Step 2 — if the user picked a new file, upload it now that the
+      // category id exists, then save the resulting URL onto the category.
+      // The category itself is already persisted, so an upload failure
+      // surfaces as a clear message rather than silently losing the row.
+      if (imageFile) {
+        try {
+          const url = await mediaApi.uploadCategoryImage(imageFile, category.id);
+          await categoriesApi.update(category.id, { imageUrl: url });
+        } catch (uploadErr) {
+          error(
+            "Category saved, but the image upload failed",
+            uploadErr instanceof Error ? uploadErr.message : undefined,
+          );
+          closeModal();
+          load();
+          return;
+        }
+      }
+
+      success(editTarget ? "Category updated" : "Category created");
       closeModal();
       load();
     } catch (err) {
@@ -191,8 +332,19 @@ export default function CategoriesPage() {
                   <tr key={cat.id}>
                     <td>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-md bg-ink-700 flex items-center justify-center shrink-0">
-                          <Tag size={13} className="text-ink-500" />
+                        <div className="w-8 h-8 rounded-md bg-ink-700 flex items-center justify-center shrink-0 overflow-hidden relative">
+                          {cat.imageUrl ? (
+                            <Image
+                              src={cat.imageUrl}
+                              alt={cat.name}
+                              fill
+                              className="object-cover"
+                              sizes="32px"
+                              unoptimized
+                            />
+                          ) : (
+                            <Tag size={13} className="text-ink-500" />
+                          )}
                         </div>
                         <span className="font-medium text-ink-200">{cat.name}</span>
                       </div>

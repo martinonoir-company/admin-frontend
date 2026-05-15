@@ -446,7 +446,13 @@ export type MediaMime = (typeof MEDIA_ALLOWED_MIME)[number];
 export const MEDIA_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export const mediaApi = {
-  presign: (dto: { filename: string; contentType: MediaMime; size: number; productId?: string }) =>
+  presign: (dto: {
+    filename: string;
+    contentType: MediaMime;
+    size: number;
+    productId?: string;
+    categoryId?: string;
+  }) =>
     request<ApiResponse<PresignResult>>("/media/presign", {
       method: "POST",
       body: JSON.stringify(dto),
@@ -515,6 +521,55 @@ export const mediaApi = {
       altText: opts.altText,
     });
     return confirmed.data;
+  },
+
+  /**
+   * End-to-end category image upload: validate → presign (scoped to the
+   * category) → PUT to S3 → confirm. Returns the public URL, which the
+   * caller then saves onto the category via PUT /categories/:id.
+   * Categories have no media gallery, so there's no ProductMedia row.
+   */
+  async uploadCategoryImage(
+    file: File,
+    categoryId: string,
+    opts: { onProgress?: (pct: number) => void } = {},
+  ): Promise<string> {
+    if (!(MEDIA_ALLOWED_MIME as readonly string[]).includes(file.type)) {
+      throw new Error("Only JPG and PNG images are supported");
+    }
+    if (file.size > MEDIA_MAX_BYTES) {
+      throw new Error("File is larger than 10 MB");
+    }
+
+    const presign = await this.presign({
+      filename: file.name,
+      contentType: file.type as MediaMime,
+      size: file.size,
+      categoryId,
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", presign.data.uploadUrl);
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && opts.onProgress) {
+          opts.onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+      };
+      xhr.onerror = () => reject(new Error("Upload failed (network error)"));
+      xhr.send(file);
+    });
+
+    const confirmed = await request<ApiResponse<{ url: string }>>(
+      "/media/confirm-category",
+      { method: "POST", body: JSON.stringify({ key: presign.data.key }) },
+    );
+    return confirmed.data.url;
   },
 };
 
