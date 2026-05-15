@@ -34,8 +34,19 @@ export default function EditProductPage() {
   async function handleSubmit(dto: CreateProductDto) {
     setSaving(true);
     try {
-      await productsApi.update(id, dto);
-      success("Product updated", "Changes have been saved.");
+      // The server's UpdateProductDto intentionally rejects `variants` —
+      // a proper variant editor (add / remove / per-row edit with stable
+      // identity) is a separate admin surface and isn't built yet.
+      // For now: send only the product-level fields on update. The form
+      // continues to display variant rows so prices/SKUs aren't hidden
+      // from the user, but they're left untouched on Save.
+      const { variants: _variants, ...productLevelDto } = dto;
+      void _variants; // mark as intentionally unused
+      await productsApi.update(id, productLevelDto);
+      success(
+        "Product updated",
+        "Product details saved. Variant edits aren't applied here yet — a dedicated variant editor is coming.",
+      );
       router.push(`/products/${id}`);
     } catch (err) {
       error("Failed to update product", err instanceof Error ? err.message : undefined);
