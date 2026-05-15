@@ -1058,6 +1058,45 @@ export const accountApi = {
     }),
 };
 
+// ── Analytics API ────────────────────────────────────────────
+
+export type AnalyticsRange = "7d" | "30d" | "90d" | "12m";
+
+export interface AnalyticsSummary {
+  range: AnalyticsRange;
+  generatedAt: string;
+  windowStart: string;
+  windowEnd: string;
+  kpis: {
+    revenue: { ngn: number; usd: number };
+    revenuePrev: { ngn: number; usd: number };
+    orders: number;
+    ordersPrev: number;
+    avgOrderValue: { ngn: number; usd: number };
+    newCustomers: number;
+    newCustomersPrev: number;
+    totalProducts: number;
+    lowStockCount: number;
+    pendingOrders: number;
+  };
+  trend: Array<{ date: string; ngn: number; usd: number; orders: number }>;
+  topProducts: Array<{
+    productName: string;
+    sku: string;
+    unitsSold: number;
+    revenueNgn: number;
+    revenueUsd: number;
+  }>;
+  statusBreakdown: Array<{ status: string; count: number }>;
+  channelBreakdown: Array<{ channel: string; count: number; revenueNgn: number; revenueUsd: number }>;
+  customerTrend: Array<{ date: string; count: number }>;
+}
+
+export const analyticsApi = {
+  summary: (range: AnalyticsRange = "30d") =>
+    request<ApiResponse<AnalyticsSummary>>(`/analytics/summary?range=${range}`),
+};
+
 // ── Helpers ──────────────────────────────────────────────────
 
 /** Convert minor units (kobo/cents) string → display string */
