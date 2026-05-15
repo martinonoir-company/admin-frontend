@@ -26,13 +26,18 @@ export default function ProductDetailPage() {
     try {
       const res = await productsApi.get(id);
       setProduct(res.data);
-      // Fetch stock levels for all variants
+      // Fetch stock levels for all variants. The API returns null when
+      // no stock-level row exists yet for that variant (the common case
+      // immediately after a product is created), so we skip those
+      // instead of storing null in the map.
       const levels: Record<string, StockLevel> = {};
       await Promise.allSettled(
         res.data.variants.map(async (v) => {
           try {
             const sl = await inventoryApi.getLevel(v.id);
-            levels[v.id] = sl.data;
+            if (sl.data) {
+              levels[v.id] = sl.data;
+            }
           } catch { /* no stock data */ }
         })
       );
@@ -77,8 +82,16 @@ export default function ProductDetailPage() {
 
   if (!product) return null;
 
-  const totalStock = Object.values(stockLevels).reduce((s, l) => s + l.onHand, 0);
-  const availableStock = Object.values(stockLevels).reduce((s, l) => s + (l.onHand - l.reserved), 0);
+  // Defensive: filter falsy values before reducing. A variant with no
+  // stock-level row contributes 0, not a NaN/null-deref.
+  const stockRows = Object.values(stockLevels).filter(
+    (l): l is StockLevel => l != null,
+  );
+  const totalStock = stockRows.reduce((s, l) => s + (l.onHand ?? 0), 0);
+  const availableStock = stockRows.reduce(
+    (s, l) => s + ((l.onHand ?? 0) - (l.reserved ?? 0)),
+    0,
+  );
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 animate-fade-in">
