@@ -82,7 +82,13 @@ export interface CreateProductDto {
   metaDescription?: string;
   tags?: string[];
   variants: Array<{
-    sku: string;
+    /**
+     * Optional. When omitted, the server auto-generates a collision-free
+     * SKU in the format `MGN-<6 base32 chars>-<3-letter suffix>` (e.g.
+     * `MGN-K8R2VQ-BAG`). Leave blank in the form and the user never has
+     * to think about SKU numbering.
+     */
+    sku?: string;
     name: string;
     retailPriceNgn: number;
     retailPriceUsd: number;
@@ -102,6 +108,33 @@ export interface CreateProductDto {
 export interface UpdateProductDto extends Partial<Omit<CreateProductDto, "variants">> {
   variants?: CreateProductDto["variants"];
 }
+
+/**
+ * Payload for adding a single variant to an existing product. SKU is
+ * optional — when omitted the server auto-generates one.
+ */
+export interface AddVariantDto {
+  sku?: string;
+  name?: string;
+  retailPriceNgn: number;
+  retailPriceUsd: number;
+  wholesalePriceNgn?: number;
+  wholesalePriceUsd?: number;
+  compareAtPriceNgn?: number;
+  compareAtPriceUsd?: number;
+  costPriceNgn?: number;
+  weightKg?: number;
+  isActive?: boolean;
+  trackInventory?: boolean;
+  options?: Record<string, string>;
+  barcode?: string;
+}
+
+/**
+ * Payload for editing one variant. All fields optional — only those
+ * present in the body are applied (PATCH semantics).
+ */
+export type UpdateVariantDto = Partial<AddVariantDto>;
 
 // ── Category types ───────────────────────────────────────────
 
@@ -370,6 +403,32 @@ export const productsApi = {
 
   restore: (id: string) =>
     request<ApiResponse<Product>>(`/products/${id}/restore`, { method: "PATCH" }),
+
+  // ── Variant CRUD (admin variant editor) ──
+
+  /** Add a new variant to an existing product. SKU auto-generated if absent. */
+  addVariant: (productId: string, dto: AddVariantDto) =>
+    request<ApiResponse<ProductVariant>>(`/products/${productId}/variants`, {
+      method: "POST",
+      body: JSON.stringify(dto),
+    }),
+
+  /** Patch one variant. Only fields present in dto are applied. */
+  updateVariant: (productId: string, variantId: string, dto: UpdateVariantDto) =>
+    request<ApiResponse<ProductVariant>>(
+      `/products/${productId}/variants/${variantId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(dto),
+      },
+    ),
+
+  /** Deactivate a variant. 409 if it's the product's last active variant. */
+  deactivateVariant: (productId: string, variantId: string) =>
+    request<ApiResponse<ProductVariant>>(
+      `/products/${productId}/variants/${variantId}`,
+      { method: "DELETE" },
+    ),
 };
 
 // ── Media API ────────────────────────────────────────────────

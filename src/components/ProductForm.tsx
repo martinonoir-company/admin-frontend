@@ -132,7 +132,7 @@ export function ProductForm({ initialValues, onSubmit, submitLabel = "Save Produ
     if (!values.shortDescription.trim()) e.shortDescription = "Short description is required";
     if (values.variants.length === 0) e.variants = "At least one variant is required";
     values.variants.forEach((v, i) => {
-      if (!v.sku.trim()) e[`variant_${i}_sku`] = "SKU required";
+      // SKU is optional — the server auto-generates one when blank.
       if (!v.name.trim()) e[`variant_${i}_name`] = "Variant name required";
       if (!v.retailPriceNgn || isNaN(Number(v.retailPriceNgn)) || Number(v.retailPriceNgn) <= 0)
         e[`variant_${i}_retailPriceNgn`] = "Valid retail NGN price required";
@@ -157,7 +157,8 @@ export function ProductForm({ initialValues, onSubmit, submitLabel = "Save Produ
       metaDescription: values.metaDescription || undefined,
       tags: values.tags,
       variants: values.variants.map((v) => ({
-        sku: v.sku.trim(),
+        // Send an undefined SKU when blank so the server auto-generates it.
+        sku: v.sku.trim() || undefined,
         name: v.name.trim(),
         retailPriceNgn: Math.round(Number(v.retailPriceNgn) * 100),
         retailPriceUsd: Math.round(Number(v.retailPriceUsd) * 100),
@@ -317,10 +318,12 @@ export function ProductForm({ initialValues, onSubmit, submitLabel = "Save Produ
                 {errors[`variant_${i}_name`] && <p className="text-xs text-danger mt-1">{errors[`variant_${i}_name`]}</p>}
               </div>
               <div>
-                <label className="admin-label">SKU *</label>
+                <label className="admin-label">SKU</label>
                 <input type="text" value={v.sku} onChange={(e) => setVariant(i, "sku", e.target.value)}
-                  className="admin-input font-mono" placeholder="MN-BAG-001" />
-                {errors[`variant_${i}_sku`] && <p className="text-xs text-danger mt-1">{errors[`variant_${i}_sku`]}</p>}
+                  className="admin-input font-mono" placeholder="Auto-generate" />
+                <p className="text-xs text-ink-500 mt-1">
+                  Leave blank for an auto-generated SKU (e.g. <span className="font-mono">MGN-K8R2VQ-BAG</span>).
+                </p>
               </div>
               <div>
                 <label className="admin-label">Retail Price NGN (₦) *</label>

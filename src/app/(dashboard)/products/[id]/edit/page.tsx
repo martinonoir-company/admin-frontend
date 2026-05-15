@@ -112,6 +112,20 @@ export default function EditProductPage() {
           <p className="text-sm text-ink-500 mt-0.5 truncate max-w-md">{product.name}</p>
         </div>
       </div>
+
+      {/* Variant edits live on the detail page now (Add / Edit / Activate
+          per-row) — this form only saves product-level fields. */}
+      <div className="admin-card p-3 text-xs text-ink-400 border-l-4 border-l-primary-700/50">
+        <strong className="text-ink-300">Note:</strong> variant edits aren&apos;t applied here.
+        To add, edit, or deactivate variants, go to the{" "}
+        <Link
+          href={`/products/${id}`}
+          className="text-primary-400 hover:underline"
+        >
+          product detail page
+        </Link>
+        .
+      </div>
       <ProductForm
         initialValues={initialValues}
         onSubmit={handleSubmit}
