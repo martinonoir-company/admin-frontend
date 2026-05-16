@@ -1133,6 +1133,8 @@ export interface Terminal {
   name: string;
   branchId: string;
   isActive: boolean;
+  /** Serial of the paired physical Moniepoint card device, if any. */
+  moniepointTerminalSerial?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -1173,11 +1175,13 @@ export interface UpdateBranchDto {
 export interface CreateTerminalDto {
   code: string;
   name: string;
+  moniepointTerminalSerial?: string;
 }
 
 export interface UpdateTerminalDto {
   name?: string;
   isActive?: boolean;
+  moniepointTerminalSerial?: string;
 }
 
 /**

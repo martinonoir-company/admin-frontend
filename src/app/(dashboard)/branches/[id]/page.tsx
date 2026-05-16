@@ -90,6 +90,9 @@ function TerminalModal({
   const [code, setCode] = useState(terminal?.code ?? "");
   const [name, setName] = useState(terminal?.name ?? "");
   const [isActive, setIsActive] = useState(terminal?.isActive ?? true);
+  const [moniepointSerial, setMoniepointSerial] = useState(
+    terminal?.moniepointTerminalSerial ?? "",
+  );
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -112,6 +115,7 @@ function TerminalModal({
         const dto: UpdateTerminalDto = {
           name: name.trim(),
           isActive,
+          moniepointTerminalSerial: moniepointSerial.trim(),
         };
         await branchesApi.updateTerminal(branchId, terminal.id, dto);
         success("Terminal updated", `${name} saved.`);
@@ -119,6 +123,7 @@ function TerminalModal({
         const dto: CreateTerminalDto = {
           code: code.toUpperCase(),
           name: name.trim(),
+          moniepointTerminalSerial: moniepointSerial.trim() || undefined,
         };
         await branchesApi.createTerminal(branchId, dto);
         success("Terminal created", `${name} is ready.`);
@@ -197,6 +202,20 @@ function TerminalModal({
           {errors.name && (
             <p className="text-xs text-danger mt-1">{errors.name}</p>
           )}
+        </div>
+        <div>
+          <label className="admin-label">Moniepoint Terminal Serial</label>
+          <input
+            type="text"
+            value={moniepointSerial}
+            onChange={(e) => setMoniepointSerial(e.target.value)}
+            placeholder="e.g. P2P12345678"
+            className="admin-input"
+          />
+          <p className="text-[11px] text-ink-500 mt-1">
+            Serial of the physical Moniepoint card device paired with this POS
+            terminal. Required for card payments; leave blank for cash-only.
+          </p>
         </div>
         {isEditing && (
           <label className="flex items-center gap-2 text-sm text-ink-200 cursor-pointer">
