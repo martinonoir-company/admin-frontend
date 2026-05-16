@@ -607,6 +607,102 @@ export const categoriesApi = {
     request<void>(`/categories/${id}`, { method: "DELETE" }),
 };
 
+// ── Coupons / Promotions API ─────────────────────────────────
+
+export type DiscountType = "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_SHIPPING";
+export type CouponStatus = "ACTIVE" | "EXPIRED" | "DISABLED";
+export type CouponChannel = "STOREFRONT" | "MOBILE" | "POS";
+
+export interface Coupon {
+  id: string;
+  code: string;
+  description?: string | null;
+  discountType: DiscountType;
+  /** PERCENTAGE: whole percent. FIXED_AMOUNT: minor units. */
+  discountValue: number;
+  currency?: string | null;
+  minimumOrderAmount: number;
+  maximumDiscount: number;
+  usageLimit: number;
+  usageLimitPerCustomer: number;
+  timesUsed: number;
+  status: CouponStatus;
+  startsAt?: string | null;
+  expiresAt?: string | null;
+  applicableProductIds: string[];
+  applicableCategoryIds: string[];
+  applicableChannels: CouponChannel[];
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCouponDto {
+  code: string;
+  description?: string;
+  discountType: DiscountType;
+  discountValue: number;
+  currency?: string;
+  minimumOrderAmount?: number;
+  maximumDiscount?: number;
+  usageLimit?: number;
+  usageLimitPerCustomer?: number;
+  status?: CouponStatus;
+  startsAt?: string;
+  expiresAt?: string;
+  applicableProductIds?: string[];
+  applicableCategoryIds?: string[];
+  applicableChannels?: CouponChannel[];
+}
+
+export const couponsApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    status?: CouponStatus;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.status) q.set("status", params.status);
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<
+      ApiResponse<{
+        items: Coupon[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/coupons${qs ? `?${qs}` : ""}`);
+  },
+
+  get: (id: string) => request<ApiResponse<Coupon>>(`/coupons/${id}`),
+
+  create: (dto: CreateCouponDto) =>
+    request<ApiResponse<Coupon>>("/coupons", {
+      method: "POST",
+      body: JSON.stringify(dto),
+    }),
+
+  update: (id: string, dto: Partial<CreateCouponDto>) =>
+    request<ApiResponse<Coupon>>(`/coupons/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(dto),
+    }),
+
+  setStatus: (id: string, status: CouponStatus) =>
+    request<ApiResponse<Coupon>>(`/coupons/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+
+  delete: (id: string) =>
+    request<void>(`/coupons/${id}`, { method: "DELETE" }),
+};
+
 // ── Orders API ───────────────────────────────────────────────
 
 export const ordersApi = {

@@ -12,6 +12,7 @@ import {
   Warehouse,
   Users,
   Building2,
+  Ticket,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -34,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Products",   href: "/products",   icon: ShoppingBag },
   { label: "Categories", href: "/categories", icon: Tag },
   { label: "Orders",     href: "/orders",     icon: ClipboardList },
+  { label: "Promotions", href: "/promotions", icon: Ticket },
   { label: "Inventory",  href: "/inventory",  icon: Warehouse },
   { label: "Staff",      href: "/staff",       icon: Users },
   {
