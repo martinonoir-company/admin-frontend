@@ -703,6 +703,78 @@ export const couponsApi = {
     request<void>(`/coupons/${id}`, { method: "DELETE" }),
 };
 
+// ── Payments API ─────────────────────────────────────────────
+
+export type PaymentProvider = "PAYSTACK" | "MONIEPOINT" | "CASH";
+export type PaymentChannel = "STOREFRONT" | "MOBILE" | "POS";
+export type PaymentMethodType = "CARD" | "CASH" | "POS_TRANSFER" | "BANK_TRANSFER";
+export type PaymentStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED"
+  | "REFUNDED";
+
+export interface Payment {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  provider: PaymentProvider;
+  channel: PaymentChannel;
+  method: PaymentMethodType;
+  status: PaymentStatus;
+  /** Minor units (kobo/cents). */
+  amount: number;
+  currency: string;
+  merchantReference: string;
+  providerReference?: string | null;
+  terminalSerial?: string | null;
+  checkoutUrl?: string | null;
+  gatewayResponse?: string | null;
+  failureReason?: string | null;
+  paidAt?: string | null;
+  rawProviderData?: Record<string, unknown> | null;
+  rawWebhook?: Record<string, unknown> | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const paymentsApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    status?: PaymentStatus;
+    channel?: PaymentChannel;
+    provider?: PaymentProvider;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.status) q.set("status", params.status);
+    if (params?.channel) q.set("channel", params.channel);
+    if (params?.provider) q.set("provider", params.provider);
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<
+      ApiResponse<{
+        items: Payment[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/payments${qs ? `?${qs}` : ""}`);
+  },
+
+  get: (id: string) => request<ApiResponse<Payment>>(`/payments/${id}`),
+
+  byOrder: (orderId: string) =>
+    request<ApiResponse<Payment[]>>(`/payments/order/${orderId}`),
+};
+
 // ── Orders API ───────────────────────────────────────────────
 
 export const ordersApi = {
