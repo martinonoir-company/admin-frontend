@@ -1305,6 +1305,12 @@ export interface AnalyticsSummary {
     totalProducts: number;
     lowStockCount: number;
     pendingOrders: number;
+    /** Realised gross profit (NGN, minor units) for the window. */
+    profitNgn: number;
+    profitNgnPrev: number;
+    /** Sold order-items with a cost recorded / total — cost-data coverage. */
+    profitItemsCosted: number;
+    profitItemsTotal: number;
   };
   trend: Array<{ date: string; ngn: number; usd: number; orders: number }>;
   topProducts: Array<{

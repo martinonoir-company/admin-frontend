@@ -59,9 +59,29 @@ interface ProductFormProps {
   loading?: boolean;
 }
 
+/** Flat sales-tax rate the server adds to selling prices on create. */
+const SALES_TAX_RATE = 0.075;
+
+/**
+ * Preview the tax-inclusive price for an entered selling price.
+ * Returns "" when the input is empty/invalid so no hint is shown.
+ */
+function taxInclusivePreview(entered: string): string {
+  const n = parseFloat(entered);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const withTax = n * (1 + SALES_TAX_RATE);
+  return withTax.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export function ProductForm({ initialValues, onSubmit, submitLabel = "Save Product", loading }: ProductFormProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tagInput, setTagInput] = useState("");
+  // On create the server adds 7.5% tax to selling prices; on edit the
+  // stored price is already tax-inclusive, so no preview is shown.
+  const isCreate = !initialValues;
   const [values, setValues] = useState<ProductFormValues>({
     name: initialValues?.name ?? "",
     description: initialValues?.description ?? "",
@@ -331,6 +351,11 @@ export function ProductForm({ initialValues, onSubmit, submitLabel = "Save Produ
                   onChange={(e) => setVariant(i, "retailPriceNgn", e.target.value)}
                   className="admin-input font-mono" placeholder="185000" />
                 {errors[`variant_${i}_retailPriceNgn`] && <p className="text-xs text-danger mt-1">{errors[`variant_${i}_retailPriceNgn`]}</p>}
+                {isCreate && taxInclusivePreview(v.retailPriceNgn) && (
+                  <p className="text-xs text-primary-400 mt-1">
+                    Customer pays ₦{taxInclusivePreview(v.retailPriceNgn)} (incl. 7.5% tax)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="admin-label">Retail Price USD ($) *</label>
@@ -338,18 +363,33 @@ export function ProductForm({ initialValues, onSubmit, submitLabel = "Save Produ
                   onChange={(e) => setVariant(i, "retailPriceUsd", e.target.value)}
                   className="admin-input font-mono" placeholder="120" />
                 {errors[`variant_${i}_retailPriceUsd`] && <p className="text-xs text-danger mt-1">{errors[`variant_${i}_retailPriceUsd`]}</p>}
+                {isCreate && taxInclusivePreview(v.retailPriceUsd) && (
+                  <p className="text-xs text-primary-400 mt-1">
+                    Customer pays ${taxInclusivePreview(v.retailPriceUsd)} (incl. 7.5% tax)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="admin-label">Wholesale NGN (₦)</label>
                 <input type="number" min="0" step="0.01" value={v.wholesalePriceNgn}
                   onChange={(e) => setVariant(i, "wholesalePriceNgn", e.target.value)}
                   className="admin-input font-mono" placeholder="Defaults to retail" />
+                {isCreate && taxInclusivePreview(v.wholesalePriceNgn) && (
+                  <p className="text-xs text-primary-400 mt-1">
+                    Stored as ₦{taxInclusivePreview(v.wholesalePriceNgn)} (incl. 7.5% tax)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="admin-label">Wholesale USD ($)</label>
                 <input type="number" min="0" step="0.01" value={v.wholesalePriceUsd}
                   onChange={(e) => setVariant(i, "wholesalePriceUsd", e.target.value)}
                   className="admin-input font-mono" placeholder="Defaults to retail" />
+                {isCreate && taxInclusivePreview(v.wholesalePriceUsd) && (
+                  <p className="text-xs text-primary-400 mt-1">
+                    Stored as ${taxInclusivePreview(v.wholesalePriceUsd)} (incl. 7.5% tax)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="admin-label">Compare-at NGN</label>

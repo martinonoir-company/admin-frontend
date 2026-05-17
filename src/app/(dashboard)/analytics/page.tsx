@@ -25,6 +25,7 @@ import {
   Users,
   Package,
   TrendingUp,
+  Wallet,
   AlertTriangle,
   Clock,
   RefreshCw,
@@ -147,6 +148,11 @@ export default function AnalyticsPage() {
   const revenueDelta = percentDelta(revenue, revenuePrev);
   const ordersDelta = percentDelta(data?.kpis.orders ?? 0, data?.kpis.ordersPrev ?? 0);
   const customersDelta = percentDelta(data?.kpis.newCustomers ?? 0, data?.kpis.newCustomersPrev ?? 0);
+  // Realised gross profit is NGN-only (cost price is recorded in NGN only).
+  const profitNgn = data?.kpis.profitNgn ?? 0;
+  const profitDelta = percentDelta(profitNgn, data?.kpis.profitNgnPrev ?? 0);
+  const profitItemsCosted = data?.kpis.profitItemsCosted ?? 0;
+  const profitItemsTotal = data?.kpis.profitItemsTotal ?? 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -249,6 +255,24 @@ export default function AnalyticsPage() {
           iconColor="text-primary-300"
           iconBg="bg-primary-600/15"
           loading={loading}
+        />
+        <KpiCard
+          title="Gross Profit (NGN)"
+          value={formatNgn(profitNgn)}
+          subtitle={
+            profitItemsTotal > 0 && profitItemsCosted < profitItemsTotal
+              ? `Selling − cost on sold items · cost set on ${profitItemsCosted}/${profitItemsTotal}`
+              : "Selling price − cost price, on sold items"
+          }
+          icon={Wallet}
+          iconColor="text-[#34D399]"
+          iconBg="bg-[#34D399]/10"
+          loading={loading}
+          trend={
+            profitDelta != null
+              ? { value: `${Math.abs(profitDelta).toFixed(1)}%`, up: profitDelta >= 0 }
+              : undefined
+          }
         />
         <KpiCard
           title="New Customers"

@@ -38,6 +38,22 @@ function majorToMinor(major: string): number | undefined {
   return Math.round(n * 100);
 }
 
+/** Flat sales-tax rate the server adds to selling prices on variant create. */
+const SALES_TAX_RATE = 0.075;
+
+/**
+ * Preview the tax-inclusive price for an entered selling price.
+ * Returns "" when the input is empty/invalid so no hint is shown.
+ */
+function taxInclusivePreview(entered: string): string {
+  const n = parseFloat(entered);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return (n * (1 + SALES_TAX_RATE)).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -615,6 +631,11 @@ function VariantEditorModal({
             {errors.retailPriceNgn && (
               <p className="text-xs text-danger mt-1">{errors.retailPriceNgn}</p>
             )}
+            {isNew && taxInclusivePreview(form.retailPriceNgn) && (
+              <p className="text-xs text-primary-400 mt-1">
+                Customer pays ₦{taxInclusivePreview(form.retailPriceNgn)} (incl. 7.5% tax)
+              </p>
+            )}
           </div>
           <div>
             <label className="admin-label">Retail price USD *</label>
@@ -628,6 +649,11 @@ function VariantEditorModal({
             />
             {errors.retailPriceUsd && (
               <p className="text-xs text-danger mt-1">{errors.retailPriceUsd}</p>
+            )}
+            {isNew && taxInclusivePreview(form.retailPriceUsd) && (
+              <p className="text-xs text-primary-400 mt-1">
+                Customer pays ${taxInclusivePreview(form.retailPriceUsd)} (incl. 7.5% tax)
+              </p>
             )}
           </div>
         </div>
@@ -644,6 +670,11 @@ function VariantEditorModal({
               className="admin-input"
               placeholder="Defaults to retail"
             />
+            {isNew && taxInclusivePreview(form.wholesalePriceNgn) && (
+              <p className="text-xs text-primary-400 mt-1">
+                Stored as ₦{taxInclusivePreview(form.wholesalePriceNgn)} (incl. 7.5% tax)
+              </p>
+            )}
           </div>
           <div>
             <label className="admin-label">Wholesale price USD</label>
@@ -656,6 +687,11 @@ function VariantEditorModal({
               className="admin-input"
               placeholder="Defaults to retail"
             />
+            {isNew && taxInclusivePreview(form.wholesalePriceUsd) && (
+              <p className="text-xs text-primary-400 mt-1">
+                Stored as ${taxInclusivePreview(form.wholesalePriceUsd)} (incl. 7.5% tax)
+              </p>
+            )}
           </div>
         </div>
 
