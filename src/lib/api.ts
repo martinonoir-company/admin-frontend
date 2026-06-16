@@ -775,6 +775,123 @@ export const paymentsApi = {
     request<ApiResponse<Payment[]>>(`/payments/order/${orderId}`),
 };
 
+// ── Refunds API (super-admin only) ──────────────────────────
+
+export type RefundStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "REJECTED"
+  | "COMPLETED_BY_STAFF";
+
+export type RefundMethod =
+  | "PAYSTACK_REFUND"
+  | "PAYSTACK_TRANSFER"
+  | "CASH";
+
+export interface RefundRequestItemView {
+  id: string;
+  variantId: string;
+  productName: string;
+  variantName?: string;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  reasonCode?: string;
+  reasonNote?: string;
+  stockMovementId?: string | null;
+}
+
+export interface RefundRequestView {
+  id: string;
+  orderId: string;
+  channel: PaymentChannel;
+  amount: number;
+  currency: string;
+  itemsCount: number;
+  status: RefundStatus;
+  method: RefundMethod;
+  reason?: string;
+  requestedBy?: string;
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  decisionReason?: string | null;
+  bankCode?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountName?: string | null;
+  providerReference?: string | null;
+  failureReason?: string | null;
+  refundedAt?: string | null;
+  createdAt: string;
+  order?: {
+    id: string;
+    orderNumber: string;
+    grandTotal: number;
+    currency: string;
+    status: string;
+    channel: string;
+    user?: { firstName?: string; lastName?: string; email?: string };
+  };
+  originalPayment?: {
+    id: string;
+    provider: PaymentProvider;
+    method: string;
+    amount: number;
+    providerReference?: string | null;
+    paidAt?: string | null;
+  } | null;
+  items?: RefundRequestItemView[];
+}
+
+export const refundsApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    status?: RefundStatus;
+    channel?: PaymentChannel;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.status) q.set("status", params.status);
+    if (params?.channel) q.set("channel", params.channel);
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<
+      ApiResponse<{
+        items: RefundRequestView[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/refunds${qs ? `?${qs}` : ""}`);
+  },
+
+  get: (id: string) =>
+    request<ApiResponse<RefundRequestView>>(`/refunds/${id}`),
+
+  approve: (id: string) =>
+    request<ApiResponse<RefundRequestView>>(`/refunds/${id}/approve`, {
+      method: "POST",
+    }),
+
+  reject: (id: string, decisionReason?: string) =>
+    request<ApiResponse<RefundRequestView>>(`/refunds/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ decisionReason }),
+    }),
+
+  retry: (id: string) =>
+    request<ApiResponse<RefundRequestView>>(`/refunds/${id}/retry`, {
+      method: "POST",
+    }),
+};
+
 // ── Orders API ───────────────────────────────────────────────
 
 export const ordersApi = {
@@ -1311,6 +1428,10 @@ export interface AnalyticsSummary {
     /** Sold order-items with a cost recorded / total — cost-data coverage. */
     profitItemsCosted: number;
     profitItemsTotal: number;
+    refundedNgn: number;
+    refundedNgnPrev: number;
+    refundedItemsCount: number;
+    refundedRequestsCount: number;
   };
   trend: Array<{ date: string; ngn: number; usd: number; orders: number }>;
   topProducts: Array<{

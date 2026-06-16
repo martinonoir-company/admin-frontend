@@ -14,6 +14,7 @@ import {
   Building2,
   Ticket,
   CreditCard,
+  Undo2,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -37,6 +38,13 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Categories", href: "/categories", icon: Tag },
   { label: "Orders",     href: "/orders",     icon: ClipboardList },
   { label: "Payments",   href: "/payments",   icon: CreditCard },
+  {
+    label: "Refunds",
+    href: "/refunds",
+    icon: Undo2,
+    // Only super-admin roles can view + process refunds.
+    allowedRoles: ["SUPER_ADMIN", "COMPANY_SUPER_ADMIN"],
+  },
   { label: "Promotions", href: "/promotions", icon: Ticket },
   { label: "Inventory",  href: "/inventory",  icon: Warehouse },
   { label: "Staff",      href: "/staff",       icon: Users },

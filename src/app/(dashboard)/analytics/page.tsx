@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Clock,
   RefreshCw,
+  Undo2,
 } from "lucide-react";
 import {
   analyticsApi,
@@ -153,6 +154,11 @@ export default function AnalyticsPage() {
   const profitDelta = percentDelta(profitNgn, data?.kpis.profitNgnPrev ?? 0);
   const profitItemsCosted = data?.kpis.profitItemsCosted ?? 0;
   const profitItemsTotal = data?.kpis.profitItemsTotal ?? 0;
+  const refundedNgn = data?.kpis.refundedNgn ?? 0;
+  const refundedNgnPrev = data?.kpis.refundedNgnPrev ?? 0;
+  const refundedDelta = percentDelta(refundedNgn, refundedNgnPrev);
+  const refundedItems = data?.kpis.refundedItemsCount ?? 0;
+  const refundedRequests = data?.kpis.refundedRequestsCount ?? 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -271,6 +277,29 @@ export default function AnalyticsPage() {
           trend={
             profitDelta != null
               ? { value: `${Math.abs(profitDelta).toFixed(1)}%`, up: profitDelta >= 0 }
+              : undefined
+          }
+        />
+        <KpiCard
+          title="Refunded (NGN)"
+          value={formatNgn(refundedNgn)}
+          subtitle={
+            refundedRequests === 0
+              ? "No refunds in this period"
+              : `${refundedItems} item${refundedItems === 1 ? "" : "s"} across ${refundedRequests} request${refundedRequests === 1 ? "" : "s"}`
+          }
+          icon={Undo2}
+          iconColor="text-[#FB923C]"
+          iconBg="bg-[#FB923C]/10"
+          loading={loading}
+          trend={
+            refundedDelta != null
+              ? {
+                  value: `${Math.abs(refundedDelta).toFixed(1)}%`,
+                  // Refunds going down is the "good" direction, so flip
+                  // the arrow polarity vs revenue.
+                  up: refundedDelta < 0,
+                }
               : undefined
           }
         />
