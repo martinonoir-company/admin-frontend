@@ -875,9 +875,15 @@ export const refundsApi = {
   get: (id: string) =>
     request<ApiResponse<RefundRequestView>>(`/refunds/${id}`),
 
-  approve: (id: string) =>
+  /**
+   * Approve and execute. `amount` (minor units) overrides the original
+   * requested amount when the super admin is reducing the refund (e.g.
+   * partial refund or holding back shipping costs).
+   */
+  approve: (id: string, amount?: number) =>
     request<ApiResponse<RefundRequestView>>(`/refunds/${id}/approve`, {
       method: "POST",
+      body: JSON.stringify(amount ? { amount } : {}),
     }),
 
   reject: (id: string, decisionReason?: string) =>

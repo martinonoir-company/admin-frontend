@@ -86,6 +86,15 @@ export default function RefundsPage() {
   const [acting, setActing] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showReject, setShowReject] = useState(false);
+  /**
+   * Editable refund amount (in naira, what the user types). Pre-filled
+   * from the request's existing amount when the drawer opens, so the
+   * super admin can reduce it before approving — e.g. to keep shipping.
+   */
+  const [editAmount, setEditAmount] = useState<string>("");
+  useEffect(() => {
+    if (detail) setEditAmount((detail.amount / 100).toString());
+  }, [detail]);
 
   // Role gate — only super admins should see this page; the sidebar
   // already hides it, but a direct URL hit must also bounce.
@@ -140,10 +149,36 @@ export default function RefundsPage() {
 
   const handleApprove = useCallback(async () => {
     if (!detail) return;
+    // Convert the edited naira amount → minor units only if it changed.
+    // When unchanged we send nothing so the server keeps the original.
+    const editedMajor = parseFloat(editAmount.replace(/,/g, ""));
+    const orderTotal = detail.order?.grandTotal ?? 0;
+    let amountOverride: number | undefined;
+    if (Number.isFinite(editedMajor) && editedMajor > 0) {
+      const minor = Math.round(editedMajor * 100);
+      if (minor !== detail.amount) {
+        if (orderTotal > 0 && minor > orderTotal) {
+          error(
+            "Amount too high",
+            `Cannot refund more than the order total (₦${(orderTotal / 100).toLocaleString()}).`,
+          );
+          return;
+        }
+        amountOverride = minor;
+      }
+    } else {
+      error("Enter a valid amount", "");
+      return;
+    }
     setActing(true);
     try {
-      await refundsApi.approve(detail.id);
-      success("Refund approved", "The provider call is now processing.");
+      await refundsApi.approve(detail.id, amountOverride);
+      success(
+        "Refund approved",
+        amountOverride
+          ? "Adjusted amount sent to the provider for processing."
+          : "The provider call is now processing.",
+      );
       await refreshDetail(detail.id);
     } catch (err) {
       error(
@@ -153,7 +188,7 @@ export default function RefundsPage() {
     } finally {
       setActing(false);
     }
-  }, [detail, success, error, refreshDetail]);
+  }, [detail, editAmount, success, error, refreshDetail]);
 
   const handleReject = useCallback(async () => {
     if (!detail) return;
@@ -425,6 +460,38 @@ export default function RefundsPage() {
                 value={format(new Date(detail.createdAt), "yyyy-MM-dd HH:mm")}
               />
             </div>
+
+            {/* Editable amount — only relevant while the request is pending.
+                Set the figure that will actually be sent to Paystack /
+                paid out. Useful for partial refunds or deducting logistics. */}
+            {detail.status === "PENDING" && (
+              <div className="rounded-lg border border-primary-700/40 bg-primary-700/10 p-3 space-y-2">
+                <label className="text-xs uppercase tracking-wider text-primary-300">
+                  Amount to refund (₦)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-ink-400">₦</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min={0}
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-ink-950 border border-ink-700 rounded text-base font-semibold text-white"
+                  />
+                </div>
+                <p className="text-[11px] text-ink-400">
+                  Requested:{" "}
+                  <span className="text-ink-200">
+                    {money(detail.amount, detail.currency)}
+                  </span>
+                  {detail.order?.grandTotal
+                    ? ` · Order total: ${money(detail.order.grandTotal, detail.order.currency)}`
+                    : ""}
+                </p>
+              </div>
+            )}
 
             {detail.order && (
               <div className="rounded-lg border border-ink-700 p-3">
