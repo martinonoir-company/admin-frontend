@@ -42,6 +42,14 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    /* Tell the browser this admin runs in a dark colour scheme. Without
+       this, Chromium / Safari render <input> and <textarea> text using
+       the user-agent "field" system colour (black on the OS's default
+       form-field background), so typed text reads as black-on-near-black
+       and is only visible when selected. Setting it dark makes the
+       browser pick light system text colours that work on our dark
+       backgrounds, and lets explicit `text-white` actually take effect. */
+    color-scheme: dark;
   }
 
   body {

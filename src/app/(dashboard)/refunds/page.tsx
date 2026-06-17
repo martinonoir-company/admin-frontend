@@ -478,7 +478,7 @@ export default function RefundsPage() {
                     min={0}
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-ink-950 border border-ink-700 rounded text-base font-semibold text-white"
+                    className="flex-1 px-3 py-2 bg-ink-950 border border-ink-700 rounded text-base font-semibold text-white placeholder:text-ink-500 caret-white"
                   />
                 </div>
                 <p className="text-[11px] text-ink-400">
