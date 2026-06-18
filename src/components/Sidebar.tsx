@@ -15,6 +15,7 @@ import {
   Ticket,
   CreditCard,
   Undo2,
+  Megaphone,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -43,6 +44,12 @@ const NAV_ITEMS: NavItem[] = [
     href: "/refunds",
     icon: Undo2,
     // Only super-admin roles can view + process refunds.
+    allowedRoles: ["SUPER_ADMIN", "COMPANY_SUPER_ADMIN"],
+  },
+  {
+    label: "Agents",
+    href: "/agents",
+    icon: Megaphone,
     allowedRoles: ["SUPER_ADMIN", "COMPANY_SUPER_ADMIN"],
   },
   { label: "Promotions", href: "/promotions", icon: Ticket },

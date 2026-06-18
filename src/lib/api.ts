@@ -1457,6 +1457,179 @@ export const analyticsApi = {
     request<ApiResponse<AnalyticsSummary>>(`/analytics/summary?range=${range}`),
 };
 
+// ── Marketing Agents API (super-admin only) ──────────────────
+
+export type AgentStatus =
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED"
+  | "SUSPENDED";
+
+export type AgentAttributionStatus =
+  | "PENDING"
+  | "EARNED"
+  | "REVERSED"
+  | "PAID";
+
+export type AgentPayoutStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED";
+
+export interface MarketingAgentView {
+  id: string;
+  userId: string;
+  code: string;
+  bankCode: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  status: AgentStatus;
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  decisionReason?: string | null;
+  commissionRateBps?: number | null;
+  walletBalanceMinor: number;
+  lifetimeEarnedMinor: number;
+  lifetimePaidMinor: number;
+  createdAt: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
+}
+
+export interface AgentAttributionView {
+  id: string;
+  agentId: string;
+  agentCode: string;
+  orderId: string;
+  orderNumber: string;
+  orderTotalMinor: number;
+  commissionRateBps: number;
+  commissionMinor: number;
+  currency: string;
+  status: AgentAttributionStatus;
+  channel: string;
+  earnedAt?: string | null;
+  reversedAt?: string | null;
+  payoutId?: string | null;
+  createdAt: string;
+}
+
+export interface AgentPayoutView {
+  id: string;
+  agentId: string;
+  amountMinor: number;
+  currency: string;
+  attributionCount: number;
+  status: AgentPayoutStatus;
+  bankCode: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  providerReference?: string | null;
+  failureReason?: string | null;
+  paidAt?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  createdAt: string;
+}
+
+export interface AgentDashboardView {
+  agent: MarketingAgentView;
+  totals: {
+    walletBalanceMinor: number;
+    lifetimeEarnedMinor: number;
+    lifetimePaidMinor: number;
+    ordersCount: number;
+  };
+  recentAttributions: AgentAttributionView[];
+  recentPayouts: AgentPayoutView[];
+}
+
+export const agentsApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    status?: AgentStatus;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.status) q.set("status", params.status);
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<
+      ApiResponse<{
+        items: MarketingAgentView[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/agents${qs ? `?${qs}` : ""}`);
+  },
+
+  get: (id: string) =>
+    request<ApiResponse<AgentDashboardView>>(`/agents/${id}`),
+
+  attributions: (id: string, params?: { page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return request<
+      ApiResponse<{
+        items: AgentAttributionView[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/agents/${id}/attributions?${q.toString()}`);
+  },
+
+  approve: (id: string) =>
+    request<ApiResponse<MarketingAgentView>>(`/agents/${id}/approve`, {
+      method: "POST",
+    }),
+
+  reject: (id: string, reason?: string) =>
+    request<ApiResponse<MarketingAgentView>>(`/agents/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  suspend: (id: string, reason?: string) =>
+    request<ApiResponse<MarketingAgentView>>(`/agents/${id}/suspend`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  setCommission: (id: string, bps: number | null) =>
+    request<ApiResponse<MarketingAgentView>>(`/agents/${id}/commission`, {
+      method: "POST",
+      body: JSON.stringify({ bps }),
+    }),
+
+  payout: (id: string) =>
+    request<ApiResponse<AgentPayoutView>>(`/agents/${id}/payout`, {
+      method: "POST",
+    }),
+
+  getGlobalRate: () =>
+    request<ApiResponse<{ bps: number }>>(`/agents/commission/global`),
+
+  setGlobalRate: (bps: number) =>
+    request<ApiResponse<{ bps: number }>>(`/agents/commission/global`, {
+      method: "POST",
+      body: JSON.stringify({ bps }),
+    }),
+};
+
 // ── Helpers ──────────────────────────────────────────────────
 
 /** Convert minor units (kobo/cents) string → display string */
