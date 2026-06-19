@@ -101,7 +101,7 @@ export default function OrdersPage() {
       header: "Total",
       cell: ({ row }) => (
         <span className="font-mono text-sm font-semibold text-ink-200">
-          {formatNgn(parseFloat(row.original.grandTotal ?? "0") * 100)}
+          {formatNgn(row.original.grandTotal ?? "0")}
         </span>
       ),
     },

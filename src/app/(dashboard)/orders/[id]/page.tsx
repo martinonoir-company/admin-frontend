@@ -137,23 +137,23 @@ export default function OrderDetailPage() {
                     <td className="font-mono text-xs text-ink-500">{item.sku}</td>
                     <td className="text-ink-300 text-sm">{item.quantity}</td>
                     <td className="font-mono text-sm text-ink-300">
-                      {formatNgn(parseFloat(item.unitPrice) * 100)}
+                      {formatNgn(item.unitPrice ?? "0")}
                     </td>
                     <td className="font-mono text-sm font-semibold text-ink-200">
-                      {formatNgn(parseFloat(item.lineTotal) * 100)}
+                      {formatNgn(item.lineTotal ?? "0")}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {/* Totals */}
+            {/* Totals — server returns minor units (kobo) as strings; formatNgn divides by 100. */}
             <div className="px-5 py-4 border-t border-ink-700 space-y-2">
-              <TotalRow label="Subtotal" value={formatNgn(subtotalVal * 100)} />
-              {discountVal > 0 && <TotalRow label="Discount" value={`-${formatNgn(discountVal * 100)}`} className="text-success" />}
-              <TotalRow label="Shipping" value={shippingVal > 0 ? formatNgn(shippingVal * 100) : "Free"} />
-              {taxVal > 0 && <TotalRow label="Tax" value={formatNgn(taxVal * 100)} />}
+              <TotalRow label="Subtotal" value={formatNgn(subtotalVal)} />
+              {discountVal > 0 && <TotalRow label="Discount" value={`-${formatNgn(discountVal)}`} className="text-success" />}
+              <TotalRow label="Shipping" value={shippingVal > 0 ? formatNgn(shippingVal) : "Free"} />
+              {taxVal > 0 && <TotalRow label="Tax" value={formatNgn(taxVal)} />}
               <div className="pt-2 border-t border-ink-700">
-                <TotalRow label="Grand Total" value={formatNgn(grandTotalVal * 100)} bold />
+                <TotalRow label="Grand Total" value={formatNgn(grandTotalVal)} bold />
               </div>
             </div>
           </div>

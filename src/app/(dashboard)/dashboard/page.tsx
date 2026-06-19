@@ -110,7 +110,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="Total Revenue"
-          value={data ? formatNgn(data.totalRevenue * 100) : "—"}
+          value={data ? formatNgn(data.totalRevenue) : "—"}
           subtitle="From paid orders"
           icon={DollarSign}
           iconColor="text-[#C9A96E]"
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                     <td className="text-ink-400 text-xs">{order.items?.length ?? 0} items</td>
                     <td>
                       <span className="font-mono text-sm font-semibold text-ink-200">
-                        {formatNgn(parseFloat(order.grandTotal ?? "0") * 100)}
+                        {formatNgn(order.grandTotal ?? "0")}
                       </span>
                     </td>
                     <td>

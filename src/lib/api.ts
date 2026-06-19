@@ -1630,6 +1630,237 @@ export const agentsApi = {
     }),
 };
 
+// ── Accounting (super-admin only) ───────────────────────────
+
+export type ExpenseCategory =
+  | "OPERATIONS"
+  | "MARKETING"
+  | "LOGISTICS"
+  | "SALARIES"
+  | "RENT_AND_UTILITIES"
+  | "COGS_ADJUSTMENT"
+  | "TAXES"
+  | "PROFESSIONAL_FEES"
+  | "TRAVEL"
+  | "EQUIPMENT"
+  | "OTHER";
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  "OPERATIONS",
+  "MARKETING",
+  "LOGISTICS",
+  "SALARIES",
+  "RENT_AND_UTILITIES",
+  "COGS_ADJUSTMENT",
+  "TAXES",
+  "PROFESSIONAL_FEES",
+  "TRAVEL",
+  "EQUIPMENT",
+  "OTHER",
+];
+
+export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  OPERATIONS: "Operations",
+  MARKETING: "Marketing",
+  LOGISTICS: "Logistics",
+  SALARIES: "Salaries",
+  RENT_AND_UTILITIES: "Rent & Utilities",
+  COGS_ADJUSTMENT: "Cost-of-Goods Adjustment",
+  TAXES: "Taxes",
+  PROFESSIONAL_FEES: "Professional Fees",
+  TRAVEL: "Travel",
+  EQUIPMENT: "Equipment",
+  OTHER: "Other",
+};
+
+export type AccountingAuditAction =
+  | "EXPENSE_CREATED"
+  | "EXPENSE_UPDATED"
+  | "EXPENSE_DELETED"
+  | "EXPENSE_RESTORED"
+  | "REPORT_EXPORTED";
+
+export interface ExpenseView {
+  id: string;
+  title: string;
+  category: ExpenseCategory;
+  amountMinor: number;
+  currency: string;
+  incurredAt: string;
+  notes?: string | null;
+  vendor?: string | null;
+  referenceNumber?: string | null;
+  createdBy: string;
+  createdByUser?: { firstName: string; lastName: string; email: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface SeriesPoint {
+  date: string;
+  amountNgn: number;
+}
+
+export interface PnlSnapshot {
+  range: { from: string; to: string };
+  revenueNgn: number;
+  grossProfit: { profitNgn: number; itemsCosted: number; itemsTotal: number };
+  refunds: { amountNgn: number; itemsCount: number; requestsCount: number };
+  commissions: { amountNgn: number; ordersCount: number };
+  payoutsDisbursed: { amountNgn: number; payoutsCount: number };
+  expenses: {
+    amountNgn: number;
+    count: number;
+    byCategory: Array<{
+      category: ExpenseCategory;
+      amountNgn: number;
+      count: number;
+    }>;
+  };
+  netProfitNgn: number;
+}
+
+export interface AccountingDashboard {
+  current: PnlSnapshot;
+  previous: PnlSnapshot;
+  topAgents: Array<{
+    agentId: string;
+    code: string;
+    name: string;
+    ordersCount: number;
+    commissionNgn: number;
+  }>;
+  revenueSeries: SeriesPoint[];
+  expenseSeries: SeriesPoint[];
+}
+
+export interface AccountingAuditEntry {
+  id: string;
+  action: AccountingAuditAction;
+  entityType: string;
+  entityId?: string | null;
+  actorId: string;
+  actorLabel: string;
+  payload?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export const accountingApi = {
+  dashboard: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return request<ApiResponse<AccountingDashboard>>(
+      `/accounting/dashboard?${q.toString()}`,
+    );
+  },
+  pnl: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return request<ApiResponse<PnlSnapshot>>(`/accounting/pnl?${q.toString()}`);
+  },
+  exportPnl: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return request<ApiResponse<PnlSnapshot>>(
+      `/accounting/pnl/export?${q.toString()}`,
+      { method: "POST" },
+    );
+  },
+  listExpenses: (params?: {
+    page?: number;
+    limit?: number;
+    from?: string;
+    to?: string;
+    category?: ExpenseCategory;
+    search?: string;
+    includeDeleted?: boolean;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.category) q.set("category", params.category);
+    if (params?.search) q.set("search", params.search);
+    if (params?.includeDeleted) q.set("includeDeleted", "true");
+    return request<
+      ApiResponse<{
+        items: ExpenseView[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/accounting/expenses?${q.toString()}`);
+  },
+  createExpense: (input: {
+    title: string;
+    category: ExpenseCategory;
+    amountMinor: number;
+    incurredAt: string;
+    notes?: string;
+    vendor?: string;
+    referenceNumber?: string;
+  }) =>
+    request<ApiResponse<ExpenseView>>(`/accounting/expenses`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateExpense: (
+    id: string,
+    patch: Partial<{
+      title: string;
+      category: ExpenseCategory;
+      amountMinor: number;
+      incurredAt: string;
+      notes: string | null;
+      vendor: string | null;
+      referenceNumber: string | null;
+    }>,
+  ) =>
+    request<ApiResponse<ExpenseView>>(`/accounting/expenses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+  deleteExpense: (id: string) =>
+    request<ApiResponse<{ ok: true }>>(`/accounting/expenses/${id}`, {
+      method: "DELETE",
+    }),
+  restoreExpense: (id: string) =>
+    request<ApiResponse<ExpenseView>>(`/accounting/expenses/${id}/restore`, {
+      method: "POST",
+    }),
+  listAudit: (params?: {
+    page?: number;
+    limit?: number;
+    action?: AccountingAuditAction;
+    entityType?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.action) q.set("action", params.action);
+    if (params?.entityType) q.set("entityType", params.entityType);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return request<
+      ApiResponse<{
+        items: AccountingAuditEntry[];
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>
+    >(`/accounting/audit?${q.toString()}`);
+  },
+};
+
 // ── Helpers ──────────────────────────────────────────────────
 
 /** Convert minor units (kobo/cents) string → display string */
