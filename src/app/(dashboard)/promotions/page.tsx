@@ -9,6 +9,8 @@ import {
   Ticket,
   RefreshCw,
   Power,
+  Search,
+  Zap,
 } from "lucide-react";
 import {
   couponsApi,
@@ -17,6 +19,8 @@ import {
   DiscountType,
   CouponStatus,
   CouponChannel,
+  productsApi,
+  Product,
 } from "@/lib/api";
 import { Modal } from "@/components/Modal";
 import { SkeletonTable } from "@/components/Skeleton";
@@ -108,6 +112,16 @@ function CouponForm({
   const [channels, setChannels] = useState<CouponChannel[]>(
     initial?.applicableChannels ?? [],
   );
+  // Variant-scoping + auto-apply (rescue-discount workflow). Auto-apply
+  // is only meaningful when at least one variant is targeted — the form
+  // enforces that as a validation rule before submit.
+  const [autoApply, setAutoApply] = useState<boolean>(
+    initial?.autoApply ?? false,
+  );
+  const [variantIds, setVariantIds] = useState<string[]>(
+    initial?.applicableVariantIds ?? [],
+  );
+  const [variantPickerOpen, setVariantPickerOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function toggleChannel(c: CouponChannel) {
@@ -138,6 +152,14 @@ function CouponForm({
       errs.expiresAt = "Expiry must be after the start date";
     }
 
+    // Auto-apply requires at least one variant; otherwise the server's
+    // findAutoApplyCandidates filter (jsonb_array_length > 0) would
+    // make it inert, and an admin can mistakenly think it's working.
+    if (autoApply && variantIds.length === 0) {
+      errs.variants =
+        "Pick at least one variant — auto-apply requires variant scoping.";
+    }
+
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -162,6 +184,8 @@ function CouponForm({
       startsAt: startsAt ? new Date(startsAt).toISOString() : undefined,
       expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       applicableChannels: channels,
+      applicableVariantIds: variantIds,
+      autoApply,
     };
 
     await onSubmit(dto);
@@ -378,6 +402,49 @@ function CouponForm({
         </p>
       </div>
 
+      {/* Variant scoping + auto-apply (rescue discounts) */}
+      <div className="rounded-lg border border-ink-700 bg-ink-900/40 p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <label className="admin-label flex items-center gap-1.5">
+              <Zap size={12} className="text-[#C9A96E]" /> Variant Scope &
+              Auto-apply
+            </label>
+            <p className="text-[11px] text-ink-500 mt-0.5">
+              Limit this promotion to specific product variants. When
+              auto-apply is on, the discount is silently attached the
+              moment the customer adds a covered variant — no code typed.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={autoApply}
+              onChange={(e) => setAutoApply(e.target.checked)}
+              className="w-4 h-4 rounded accent-primary-600"
+            />
+            <span className="text-ink-200">Auto-apply</span>
+          </label>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-ink-400">
+            {variantIds.length === 0
+              ? "No variants picked yet"
+              : `${variantIds.length} variant${variantIds.length === 1 ? "" : "s"} selected`}
+          </p>
+          <button
+            type="button"
+            onClick={() => setVariantPickerOpen(true)}
+            className="btn-secondary px-3 py-1.5 text-xs"
+          >
+            <Search size={12} /> Pick variants
+          </button>
+        </div>
+        {errors.variants && (
+          <p className="text-xs text-danger">{errors.variants}</p>
+        )}
+      </div>
+
       {/* Status */}
       <div>
         <label className="admin-label">Status</label>
@@ -390,6 +457,17 @@ function CouponForm({
           <option value="DISABLED">Disabled</option>
         </select>
       </div>
+
+      {variantPickerOpen && (
+        <VariantPickerModal
+          selected={variantIds}
+          onCancel={() => setVariantPickerOpen(false)}
+          onApply={(next) => {
+            setVariantIds(next);
+            setVariantPickerOpen(false);
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel} className="btn-secondary px-4">
@@ -699,5 +777,151 @@ export default function PromotionsPage() {
         />
       </Modal>
     </div>
+  );
+}
+
+/**
+ * Variant multi-picker. Lists every active product and its variants;
+ * admin checks the variants this coupon should cover.
+ *
+ * Loads up to 200 products once on open. Search filters by product
+ * name + variant SKU client-side for snappy UX.
+ */
+function VariantPickerModal({
+  selected,
+  onApply,
+  onCancel,
+}: {
+  selected: string[];
+  onApply: (ids: string[]) => void;
+  onCancel: () => void;
+}) {
+  const { error } = useToast();
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set(selected));
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    productsApi
+      .list({ page: 1, limit: 200 })
+      .then((res) => {
+        if (!cancelled) setProducts(res.data.items);
+      })
+      .catch((e) => {
+        error(
+          "Could not load products",
+          e instanceof Error ? e.message : undefined,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [error]);
+
+  function toggle(variantId: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(variantId)) next.delete(variantId);
+      else next.add(variantId);
+      return next;
+    });
+  }
+
+  const filtered = (products ?? []).filter((p) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    if (p.name.toLowerCase().includes(q)) return true;
+    return p.variants?.some(
+      (v) =>
+        v.name.toLowerCase().includes(q) ||
+        v.sku.toLowerCase().includes(q),
+    );
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onCancel}
+      title="Pick variants to scope the promotion"
+      size="xl"
+      footer={
+        <>
+          <button onClick={onCancel} className="btn-ghost">
+            Cancel
+          </button>
+          <button
+            onClick={() => onApply(Array.from(picked))}
+            className="btn-primary"
+          >
+            Apply ({picked.size} selected)
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="relative">
+          <Search
+            size={12}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500"
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by product, variant name, or SKU"
+            className="admin-input pl-9"
+          />
+        </div>
+        {!products ? (
+          <p className="text-sm text-ink-400 py-8 text-center">
+            <Loader2 className="inline animate-spin" size={14} /> Loading…
+          </p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-ink-400 py-8 text-center">
+            No products match.
+          </p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto space-y-3">
+            {filtered.map((p) => (
+              <div
+                key={p.id}
+                className="border border-ink-700 rounded-lg overflow-hidden"
+              >
+                <div className="px-3 py-2 bg-ink-900/40 text-sm text-ink-200 font-medium">
+                  {p.name}
+                </div>
+                <div className="divide-y divide-ink-800">
+                  {(p.variants ?? []).map((v) => (
+                    <label
+                      key={v.id}
+                      className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-ink-800/40 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={picked.has(v.id)}
+                          onChange={() => toggle(v.id)}
+                          className="w-4 h-4 rounded accent-primary-600"
+                        />
+                        <div>
+                          <div className="text-sm text-ink-100">{v.name}</div>
+                          <div className="text-[11px] text-ink-500 font-mono">
+                            {v.sku}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-ink-500">
+                        {v.isActive ? "active" : "inactive"}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

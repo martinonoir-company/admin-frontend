@@ -650,6 +650,10 @@ export interface Coupon {
   applicableProductIds: string[];
   applicableCategoryIds: string[];
   applicableChannels: CouponChannel[];
+  /** Variant IDs the coupon applies to. Empty = all variants. */
+  applicableVariantIds: string[];
+  /** When true, the cart auto-attaches the coupon — no code typed. */
+  autoApply: boolean;
   createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -671,6 +675,8 @@ export interface CreateCouponDto {
   applicableProductIds?: string[];
   applicableCategoryIds?: string[];
   applicableChannels?: CouponChannel[];
+  applicableVariantIds?: string[];
+  autoApply?: boolean;
 }
 
 export const couponsApi = {
