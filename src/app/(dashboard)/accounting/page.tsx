@@ -73,42 +73,47 @@ export default function AccountingOverview() {
     <div className="space-y-5 animate-fade-in">
       <DateRangeBar preset={preset} range={range} onChange={set} />
 
-      {/* KPI strip */}
+      {/* KPI strip — every figure is NET OF VAT (post-7.5%). The card's
+          formula line explains how it's computed so a reviewer can audit
+          each number without digging through code. */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Kpi
-          label="Revenue"
+          label="Net revenue"
           icon={DollarSign}
           accent="#C9A96E"
-          value={ngnFromKobo(cur?.revenueNgn)}
-          delta={deltaPct(cur?.revenueNgn ?? 0, prev?.revenueNgn ?? 0)}
+          value={ngnFromKobo(cur?.netRevenueNgn)}
+          delta={deltaPct(cur?.netRevenueNgn ?? 0, prev?.netRevenueNgn ?? 0)}
+          formula="gross receipts ÷ 1.075"
           loading={loading}
         />
         <Kpi
-          label="Gross profit"
+          label="Net gross profit"
           icon={Coins}
           accent="#4ADE80"
-          value={ngnFromKobo(cur?.grossProfit.profitNgn)}
+          value={ngnFromKobo(cur?.grossProfit.netGrossProfitNgn)}
           delta={deltaPct(
-            cur?.grossProfit.profitNgn ?? 0,
-            prev?.grossProfit.profitNgn ?? 0,
+            cur?.grossProfit.netGrossProfitNgn ?? 0,
+            prev?.grossProfit.netGrossProfitNgn ?? 0,
           )}
           sub={
             cur
-              ? `${cur.grossProfit.itemsCosted}/${cur.grossProfit.itemsTotal} items with cost`
+              ? `${cur.grossProfit.itemsCosted}/${cur.grossProfit.itemsTotal} items costed`
               : ""
           }
+          formula="net revenue − cost of goods sold"
           loading={loading}
         />
         <Kpi
-          label="Refunds"
+          label="Net refunds"
           icon={Undo2}
           accent="#F87171"
-          value={ngnFromKobo(cur?.refunds.amountNgn)}
+          value={ngnFromKobo(cur?.refunds.netAmountNgn)}
           delta={deltaPct(
-            cur?.refunds.amountNgn ?? 0,
-            prev?.refunds.amountNgn ?? 0,
+            cur?.refunds.netAmountNgn ?? 0,
+            prev?.refunds.netAmountNgn ?? 0,
           )}
           sub={cur ? `${cur.refunds.requestsCount} refunds` : ""}
+          formula="settled refunds ÷ 1.075"
           inverse
           loading={loading}
         />
@@ -122,6 +127,7 @@ export default function AccountingOverview() {
             prev?.commissions.amountNgn ?? 0,
           )}
           sub={cur ? `${cur.commissions.ordersCount} orders` : ""}
+          formula="Σ floor(orderTotal × bps ÷ 10 000)"
           inverse
           loading={loading}
         />
@@ -135,6 +141,7 @@ export default function AccountingOverview() {
             prev?.expenses.amountNgn ?? 0,
           )}
           sub={cur ? `${cur.expenses.count} entries` : ""}
+          formula="Σ recorded expenses (VAT-exclusive)"
           inverse
           loading={loading}
         />
@@ -144,6 +151,7 @@ export default function AccountingOverview() {
           accent="#22D3EE"
           value={ngnFromKobo(cur?.netProfitNgn)}
           delta={deltaPct(cur?.netProfitNgn ?? 0, prev?.netProfitNgn ?? 0)}
+          formula="net gross profit − net refunds − commissions − expenses"
           headline
           loading={loading}
         />
@@ -378,6 +386,8 @@ interface KpiProps {
   value: string;
   delta?: { label: string; tone: "up" | "down" | "flat" };
   sub?: string;
+  /** Short formula explaining how the figure is computed. Required for audit. */
+  formula?: string;
   /** Reverse the delta semantics — for expense/refund cards where up is bad. */
   inverse?: boolean;
   /** Larger emphasis for the net-profit card. */
@@ -392,6 +402,7 @@ function Kpi({
   value,
   delta,
   sub,
+  formula,
   inverse = false,
   headline = false,
   loading = false,
@@ -446,6 +457,15 @@ function Kpi({
         </span>
         {sub ? <span className="text-ink-500">{sub}</span> : null}
       </div>
+      {formula ? (
+        <div
+          className="mt-2 pt-1.5 border-t border-ink-800 text-[10px] text-ink-500 leading-tight"
+          title={`Formula: ${formula}`}
+        >
+          <span className="text-ink-600">ƒ</span>{" "}
+          <span className="font-mono">{formula}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   Megaphone,
   Undo2,
   FileBarChart2,
+  Landmark,
   ShieldCheck,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ const SUBNAV = [
   { href: "/accounting/expenses", label: "Expenses", icon: Receipt },
   { href: "/accounting/commissions", label: "Agent Commissions", icon: Megaphone },
   { href: "/accounting/refunds", label: "Refunds", icon: Undo2 },
+  { href: "/accounting/tax", label: "Tax (VAT)", icon: Landmark },
   { href: "/accounting/reports", label: "Reports", icon: FileBarChart2 },
   { href: "/accounting/audit", label: "Audit Log", icon: ShieldCheck },
 ];

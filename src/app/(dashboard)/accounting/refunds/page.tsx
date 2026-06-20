@@ -87,9 +87,13 @@ export default function RefundsAccountingPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard
-          label="Refunded"
-          value={ngnFromKobo(cur?.refunds.amountNgn)}
-          sub={cur ? `${cur.refunds.requestsCount} refunds` : ""}
+          label="Net refunds"
+          value={ngnFromKobo(cur?.refunds.netAmountNgn)}
+          sub={
+            cur
+              ? `${cur.refunds.requestsCount} refunds · VAT refunded ${ngnFromKobo(cur.refunds.vatAmountNgn)}`
+              : ""
+          }
         />
         <StatCard
           label="Units returned"
@@ -97,13 +101,13 @@ export default function RefundsAccountingPage() {
           sub="Physical items"
         />
         <StatCard
-          label="As % of revenue"
+          label="As % of net revenue"
           value={
-            cur && cur.revenueNgn > 0
-              ? `${((cur.refunds.amountNgn / cur.revenueNgn) * 100).toFixed(1)}%`
+            cur && cur.netRevenueNgn > 0
+              ? `${((cur.refunds.netAmountNgn / cur.netRevenueNgn) * 100).toFixed(1)}%`
               : "—"
           }
-          sub="Refund rate"
+          sub="Refund rate (net of VAT)"
         />
       </div>
 

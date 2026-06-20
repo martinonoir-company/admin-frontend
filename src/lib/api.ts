@@ -1704,9 +1704,30 @@ export interface SeriesPoint {
 
 export interface PnlSnapshot {
   range: { from: string; to: string };
-  revenueNgn: number;
-  grossProfit: { profitNgn: number; itemsCosted: number; itemsTotal: number };
-  refunds: { amountNgn: number; itemsCount: number; requestsCount: number };
+  /** Sales-tax rate the figures were split on, e.g. 0.075 = 7.5%. */
+  salesTaxRate: number;
+  /** Gross receipts — tax-inclusive. SUM(orders.grandTotal). */
+  grossRevenueNgn: number;
+  /** Net revenue = grossRevenue / (1 + salesTaxRate), rounded. */
+  netRevenueNgn: number;
+  /** Output VAT collected = grossRevenue − netRevenue. */
+  vatOnRevenueNgn: number;
+  grossProfit: {
+    /** Legacy: (unitPrice − costPriceNgn) × qty. Overstated by VAT-on-revenue. */
+    grossProfitNgn: number;
+    /** Net of VAT: netRevenue − cogs. The figure used in netProfit. */
+    netGrossProfitNgn: number;
+    cogsNgn: number;
+    itemsCosted: number;
+    itemsTotal: number;
+  };
+  refunds: {
+    grossAmountNgn: number;
+    netAmountNgn: number;
+    vatAmountNgn: number;
+    itemsCount: number;
+    requestsCount: number;
+  };
   commissions: { amountNgn: number; ordersCount: number };
   payoutsDisbursed: { amountNgn: number; payoutsCount: number };
   expenses: {
@@ -1718,7 +1739,27 @@ export interface PnlSnapshot {
       count: number;
     }>;
   };
+  /** netGrossProfit − netRefunds − commissions − expenses. */
   netProfitNgn: number;
+}
+
+export interface VatReport {
+  range: { from: string; to: string };
+  salesTaxRate: number;
+  revenue: {
+    grossNgn: number;
+    netNgn: number;
+    vatNgn: number;
+    ordersCount: number;
+  };
+  refunds: {
+    grossNgn: number;
+    netNgn: number;
+    vatNgn: number;
+    requestsCount: number;
+  };
+  inputVat: { amountNgn: number; expensesCount: number };
+  netVatPayableNgn: number;
 }
 
 export interface AccountingDashboard {
@@ -1760,6 +1801,14 @@ export const accountingApi = {
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
     return request<ApiResponse<PnlSnapshot>>(`/accounting/pnl?${q.toString()}`);
+  },
+  vatReport: (params?: { from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    return request<ApiResponse<VatReport>>(
+      `/accounting/vat-report?${q.toString()}`,
+    );
   },
   exportPnl: (params?: { from?: string; to?: string }) => {
     const q = new URLSearchParams();

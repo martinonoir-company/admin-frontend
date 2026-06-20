@@ -54,21 +54,35 @@ export default function ReportsPage() {
       return;
     }
     try {
+      const taxPct = (data.salesTaxRate * 100).toFixed(2);
       const rows: string[][] = [
         ["Profit & Loss"],
         ["Window", `${data.range.from} to ${data.range.to}`],
+        [`All figures net of ${taxPct}% sales tax (VAT) unless marked GROSS.`],
         [],
         ["Section", "Item", "Value (NGN)"],
-        ["Revenue", "Recognised revenue", toNaira(data.revenueNgn)],
+        ["Revenue", "Gross receipts (tax-inclusive)", toNaira(data.grossRevenueNgn)],
+        ["Revenue", `Less: output VAT (${taxPct}%)`, `-${toNaira(data.vatOnRevenueNgn)}`],
+        ["Revenue", "Net revenue", toNaira(data.netRevenueNgn)],
         [
-          "Gross profit",
-          `Profit (cost coverage ${data.grossProfit.itemsCosted}/${data.grossProfit.itemsTotal})`,
-          toNaira(data.grossProfit.profitNgn),
+          "Cost of goods sold",
+          `${data.grossProfit.itemsCosted}/${data.grossProfit.itemsTotal} items costed`,
+          `-${toNaira(data.grossProfit.cogsNgn)}`,
         ],
         [
-          "Refunds",
+          "Gross profit",
+          "Net revenue − COGS",
+          toNaira(data.grossProfit.netGrossProfitNgn),
+        ],
+        [
+          "Refunds (net)",
           `${data.refunds.requestsCount} refunds · ${data.refunds.itemsCount} items`,
-          `-${toNaira(data.refunds.amountNgn)}`,
+          `-${toNaira(data.refunds.netAmountNgn)}`,
+        ],
+        [
+          "Refunds (memo)",
+          "VAT refunded (reduces output VAT)",
+          `-${toNaira(data.refunds.vatAmountNgn)}`,
         ],
         [
           "Agent commissions",
@@ -91,6 +105,11 @@ export default function ReportsPage() {
           "Memo: payouts disbursed",
           `${data.payoutsDisbursed.payoutsCount} payouts`,
           toNaira(data.payoutsDisbursed.amountNgn),
+        ],
+        [
+          "Memo: net VAT payable",
+          "output VAT − VAT refunded",
+          toNaira(data.vatOnRevenueNgn - data.refunds.vatAmountNgn),
         ],
       ];
       const csv = rows
@@ -146,16 +165,34 @@ export default function ReportsPage() {
           <p className="p-12 text-center text-sm text-ink-400">Loading…</p>
         ) : (
           <div className="px-5 py-4 space-y-1.5 max-w-2xl">
-            <PnlRow label="Recognised revenue" value={data.revenueNgn} />
+            <div className="text-[11px] text-ink-500 italic pb-1.5">
+              All figures net of {(data.salesTaxRate * 100).toFixed(1)}% sales tax (VAT) unless marked GROSS.
+            </div>
             <PnlRow
-              label={`Gross profit · ${data.grossProfit.itemsCosted}/${data.grossProfit.itemsTotal} items with cost`}
-              value={data.grossProfit.profitNgn}
+              label="Gross receipts (tax-inclusive)"
+              value={data.grossRevenueNgn}
+              muted
+            />
+            <PnlRow
+              label={`Less: output VAT (${(data.salesTaxRate * 100).toFixed(1)}%)`}
+              value={-data.vatOnRevenueNgn}
+              muted
+            />
+            <PnlRow label="Net revenue" value={data.netRevenueNgn} />
+            <PnlRow
+              label={`Cost of goods sold · ${data.grossProfit.itemsCosted}/${data.grossProfit.itemsTotal} items costed`}
+              value={-data.grossProfit.cogsNgn}
+              tone="bad"
+            />
+            <PnlRow
+              label="Gross profit (net of VAT)"
+              value={data.grossProfit.netGrossProfitNgn}
               tone="good"
             />
             <Spacer />
             <PnlRow
-              label={`Refunds · ${data.refunds.requestsCount} refunds, ${data.refunds.itemsCount} items`}
-              value={-data.refunds.amountNgn}
+              label={`Refunds (net) · ${data.refunds.requestsCount} refunds, ${data.refunds.itemsCount} items`}
+              value={-data.refunds.netAmountNgn}
               tone="bad"
             />
             <PnlRow
@@ -201,6 +238,16 @@ export default function ReportsPage() {
             <PnlRow
               label={`Agent payouts disbursed · ${data.payoutsDisbursed.payoutsCount}`}
               value={data.payoutsDisbursed.amountNgn}
+              muted
+            />
+            <PnlRow
+              label="VAT refunded (reduces output VAT)"
+              value={data.refunds.vatAmountNgn}
+              muted
+            />
+            <PnlRow
+              label="Net VAT payable (memo)"
+              value={data.vatOnRevenueNgn - data.refunds.vatAmountNgn}
               muted
             />
           </div>
