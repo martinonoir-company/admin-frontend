@@ -46,6 +46,12 @@ export interface ProductMedia {
   url: string;
   altText?: string;
   sortOrder: number;
+  /**
+   * NULL → media belongs to the product as a whole. Non-null → media
+   * is specific to this variant — uploaded via the variant editor and
+   * displayed on the PDP when the variant is selected.
+   */
+  variantId?: string | null;
 }
 
 export interface Product {
@@ -458,7 +464,13 @@ export const mediaApi = {
       body: JSON.stringify(dto),
     }),
 
-  confirm: (dto: { productId: string; key: string; altText?: string; sortOrder?: number }) =>
+  confirm: (dto: {
+    productId: string;
+    variantId?: string;
+    key: string;
+    altText?: string;
+    sortOrder?: number;
+  }) =>
     request<ApiResponse<ProductMedia>>("/media/confirm", {
       method: "POST",
       body: JSON.stringify(dto),
@@ -481,7 +493,12 @@ export const mediaApi = {
   async uploadFile(
     file: File,
     productId: string,
-    opts: { altText?: string; onProgress?: (pct: number) => void } = {},
+    opts: {
+      /** When provided, the media is attached to this specific variant. */
+      variantId?: string;
+      altText?: string;
+      onProgress?: (pct: number) => void;
+    } = {},
   ): Promise<ProductMedia> {
     if (!(MEDIA_ALLOWED_MIME as readonly string[]).includes(file.type)) {
       throw new Error("Only JPG and PNG images are supported");
@@ -517,6 +534,7 @@ export const mediaApi = {
 
     const confirmed = await this.confirm({
       productId,
+      variantId: opts.variantId,
       key: presign.data.key,
       altText: opts.altText,
     });

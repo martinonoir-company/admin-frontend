@@ -21,6 +21,14 @@ import { useToast } from "@/lib/toast-context";
 
 interface Props {
   productId: string;
+  /**
+   * Optional. When supplied, uploads go into this variant's bucket and
+   * the gallery only renders rows whose variantId matches. When omitted
+   * (the existing product gallery use-case), uploads stay at the
+   * product level and only product-level rows are shown.
+   */
+  variantId?: string;
+  /** Media to seed the gallery with (already filtered by the caller is fine). */
   initialMedia: ProductMedia[];
 }
 
@@ -32,19 +40,35 @@ interface Uploading {
 
 const ALLOWED_EXT = ".jpg,.jpeg,.png";
 
-export function MediaGallery({ productId, initialMedia }: Props) {
+export function MediaGallery({ productId, variantId, initialMedia }: Props) {
   const { success, error } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [media, setMedia] = useState<ProductMedia[]>(
-    [...initialMedia].sort((a, b) => a.sortOrder - b.sortOrder),
+
+  // Filter the caller's media to this bucket. When variantId is set we
+  // show only media tagged to this variant; otherwise we show only
+  // product-level media (variantId NULL).
+  const bucketed = useCallback(
+    (all: ProductMedia[]) =>
+      [...all]
+        .filter((m) =>
+          variantId
+            ? m.variantId === variantId
+            : !m.variantId,
+        )
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [variantId],
+  );
+
+  const [media, setMedia] = useState<ProductMedia[]>(() =>
+    bucketed(initialMedia),
   );
   const [uploading, setUploading] = useState<Uploading[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [savingOrder, setSavingOrder] = useState(false);
 
   useEffect(() => {
-    setMedia([...initialMedia].sort((a, b) => a.sortOrder - b.sortOrder));
-  }, [initialMedia]);
+    setMedia(bucketed(initialMedia));
+  }, [initialMedia, bucketed]);
 
   const uploadOne = useCallback(
     async (file: File) => {
@@ -65,6 +89,7 @@ export function MediaGallery({ productId, initialMedia }: Props) {
 
       try {
         const added = await mediaApi.uploadFile(file, productId, {
+          variantId,
           onProgress: (pct) => {
             setUploading((u) =>
               u.map((x) => (x.id === tempId ? { ...x, progress: pct } : x)),
@@ -84,7 +109,7 @@ export function MediaGallery({ productId, initialMedia }: Props) {
         setUploading((u) => u.filter((x) => x.id !== tempId));
       }
     },
-    [productId, success, error],
+    [productId, variantId, success, error],
   );
 
   async function handleFiles(files: FileList | null) {
@@ -175,10 +200,13 @@ export function MediaGallery({ productId, initialMedia }: Props) {
     <div className="admin-card p-5 space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-ink-700">
         <div>
-          <h3 className="text-sm font-semibold text-ink-200">Media Gallery</h3>
+          <h3 className="text-sm font-semibold text-ink-200">
+            {variantId ? "Variant Images" : "Media Gallery"}
+          </h3>
           <p className="text-[11px] text-ink-500 mt-0.5">
-            JPG or PNG, up to 10 MB per image. Drag to reorder — the first
-            image is the primary.
+            {variantId
+              ? "Shown when this specific variant is selected on the storefront. Falls back to product media if empty."
+              : "JPG or PNG, up to 10 MB per image. Drag to reorder — the first image is the primary."}
           </p>
         </div>
         <button
