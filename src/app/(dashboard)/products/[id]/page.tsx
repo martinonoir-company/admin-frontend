@@ -372,7 +372,6 @@ export default function ProductDetailPage() {
           productMedia={product.media ?? []}
           onClose={() => setEditingVariant(null)}
           onSaved={handleVariantSaved}
-          onMediaChange={load}
         />
       )}
     </div>
@@ -425,19 +424,19 @@ function VariantEditorModal({
   productMedia,
   onClose,
   onSaved,
-  onMediaChange,
 }: {
   productId: string;
   variant: Product["variants"][number] | null;
   /**
    * The product's full media list. The modal renders the subset
    * tagged to this variant via a nested MediaGallery instance.
+   * The parent page re-fetches its product when the modal closes
+   * (handleVariantSaved → load), so changes to variant media made
+   * inside the modal are reconciled after close.
    */
   productMedia: Product["media"];
   onClose: () => void;
   onSaved: () => void;
-  /** Called after the user uploads / removes / reorders variant images. */
-  onMediaChange?: () => void;
 }) {
   const { success, error } = useToast();
   const isNew = variant === null;
@@ -843,7 +842,6 @@ function VariantEditorModal({
             productId={productId}
             variantId={variant.id}
             productMedia={productMedia}
-            onChange={onMediaChange}
           />
         ) : (
           <div className="border border-dashed border-ink-600 rounded-lg p-4 text-center">
@@ -860,38 +858,37 @@ function VariantEditorModal({
 
 /**
  * Variant images sub-panel. Renders a MediaGallery scoped to this
- * variant, and surfaces an `onChange` so the parent page can refresh
- * its product (and therefore its mixed media list) after an upload.
+ * variant. MediaGallery manages its own internal state across uploads,
+ * deletes, and reorders; the parent product re-fetches when the
+ * variant editor modal closes (handleVariantSaved → load()), which
+ * picks up any media changes made in the panel.
  *
- * The gallery itself drives the upload/delete/reorder; we only need
- * to push a re-fetch downstream so a freshly added variant image shows
- * up on the product's main media gallery row too.
+ * IMPORTANT: this panel sits INSIDE the variant editor's <form>. The
+ * earlier implementation wrapped MediaGallery in a `<div onBlur=…>`
+ * that triggered a parent product re-fetch every time focus left the
+ * panel. The "Upload" button opens a file picker which immediately
+ * steals focus → blur fired → parent re-fetched → the modal's
+ * useState re-initialised from the fresh product → the modal looked
+ * like it "refreshed" and the click on the hidden file input bound to
+ * the (now stale) gallery instance was lost. The fix is to render
+ * MediaGallery directly without any blur or click side-effects on the
+ * wrapper.
  */
 function VariantImagesPanel({
   productId,
   variantId,
   productMedia,
-  onChange,
 }: {
   productId: string;
   variantId: string;
   productMedia: Product["media"];
-  onChange?: () => void;
 }) {
-  // We can't observe MediaGallery's internal state, but every mutation
-  // hits the server. After the modal closes the parent refetches via
-  // handleVariantSaved. For mid-edit feedback we trigger onChange on
-  // a debounced timer when productMedia changes — but the simpler
-  // approach is to just rely on closing-then-reopening for now. Plumb
-  // onChange through so the gallery can call it.
   return (
-    <div onBlur={onChange}>
-      <MediaGallery
-        productId={productId}
-        variantId={variantId}
-        initialMedia={productMedia}
-      />
-    </div>
+    <MediaGallery
+      productId={productId}
+      variantId={variantId}
+      initialMedia={productMedia}
+    />
   );
 }
 
