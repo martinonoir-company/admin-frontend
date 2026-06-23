@@ -542,7 +542,13 @@ export default function PromotionsPage() {
     setSaving(true);
     try {
       if (editTarget) {
-        await couponsApi.update(editTarget.id, dto);
+        // The update DTO is stricter than create: `code` is immutable
+        // and the server rejects it (forbidNonWhitelisted). Strip it
+        // before sending so an edit doesn't 400 on "code should not
+        // exist".
+        const { code: _code, ...updateDto } = dto;
+        void _code;
+        await couponsApi.update(editTarget.id, updateDto);
         success("Promotion updated");
       } else {
         await couponsApi.create(dto);
