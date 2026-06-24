@@ -834,6 +834,23 @@ function VariantPickerModal({
     });
   }
 
+  // Whole-product scope: check/uncheck every variant of a product at once.
+  // This is how the admin runs a promotion on a "main product" rather than
+  // hand-picking variants — it simply selects all of them.
+  function toggleProduct(p: Product) {
+    const ids = (p.variants ?? []).map((v) => v.id);
+    if (ids.length === 0) return;
+    setPicked((prev) => {
+      const next = new Set(prev);
+      const allOn = ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allOn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
   const filtered = (products ?? []).filter((p) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
@@ -894,9 +911,21 @@ function VariantPickerModal({
                 key={p.id}
                 className="border border-ink-700 rounded-lg overflow-hidden"
               >
-                <div className="px-3 py-2 bg-ink-900/40 text-sm text-ink-200 font-medium">
+                <label className="flex items-center gap-2.5 px-3 py-2 bg-ink-900/40 text-sm text-ink-200 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={
+                      (p.variants ?? []).length > 0 &&
+                      (p.variants ?? []).every((v) => picked.has(v.id))
+                    }
+                    onChange={() => toggleProduct(p)}
+                    className="w-4 h-4 rounded accent-primary-600"
+                  />
                   {p.name}
-                </div>
+                  <span className="text-[11px] text-ink-500 font-normal">
+                    (whole product)
+                  </span>
+                </label>
                 <div className="divide-y divide-ink-800">
                   {(p.variants ?? []).map((v) => (
                     <label
