@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, RefreshCw } from "lucide-react";
-import { ordersApi, formatNgn, Order } from "@/lib/api";
+import { Search, RefreshCw, Save, Loader2, Boxes } from "lucide-react";
+import { ordersApi, settingsApi, formatNgn, Order } from "@/lib/api";
 import { DataTable } from "@/components/DataTable";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ColumnDef } from "@tanstack/react-table";
@@ -27,7 +27,7 @@ const STATUS_TABS: { label: string; value: string }[] = [
 
 export default function WholesaleOrdersPage() {
   const router = useRouter();
-  const { error } = useToast();
+  const { error, success } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -35,6 +35,45 @@ export default function WholesaleOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [searchInput, setSearchInput] = useState("");
+
+  // Wholesale minimum order quantity (configurable). The server gates the
+  // save with settings:update (super admin), so a non-super-admin's save 403s.
+  const [minQty, setMinQty] = useState<string>("");
+  const [savingMinQty, setSavingMinQty] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    settingsApi
+      .get()
+      .then((res) => {
+        if (!cancelled) setMinQty(String(res.data.wholesaleMinQty));
+      })
+      .catch(() => {
+        /* non-fatal — the input stays empty until retried */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleSaveMinQty(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseInt(minQty, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      error("Invalid value", "Minimum quantity must be at least 1.");
+      return;
+    }
+    setSavingMinQty(true);
+    try {
+      const res = await settingsApi.setWholesaleMinQty(n);
+      setMinQty(String(res.data.wholesaleMinQty));
+      success("Saved", `Wholesale minimum quantity is now ${res.data.wholesaleMinQty}.`);
+    } catch (err) {
+      error("Failed to save", err instanceof Error ? err.message : undefined);
+    } finally {
+      setSavingMinQty(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,6 +172,40 @@ export default function WholesaleOrdersPage() {
           <RefreshCw size={15} />
         </button>
       </div>
+
+      {/* Wholesale minimum order quantity — configurable (super admin). */}
+      <form
+        onSubmit={handleSaveMinQty}
+        className="admin-card p-4 flex flex-wrap items-end gap-4"
+      >
+        <div className="flex items-center gap-2 text-ink-200">
+          <Boxes size={16} className="text-primary-400" />
+          <div>
+            <p className="text-sm font-semibold">Wholesale minimum quantity</p>
+            <p className="text-xs text-ink-500">
+              Minimum units per item to buy at the wholesale price. Applied on
+              the web &amp; mobile storefronts and enforced at checkout.
+            </p>
+          </div>
+        </div>
+        <div className="ml-auto flex items-end gap-2">
+          <input
+            type="number"
+            min={1}
+            value={minQty}
+            onChange={(e) => setMinQty(e.target.value.replace(/[^0-9]/g, ""))}
+            className="admin-input w-28"
+            aria-label="Wholesale minimum quantity"
+          />
+          <button type="submit" disabled={savingMinQty} className="btn-primary px-5">
+            {savingMinQty ? (
+              <><Loader2 size={14} className="animate-spin" /> Saving…</>
+            ) : (
+              <><Save size={14} /> Save</>
+            )}
+          </button>
+        </div>
+      </form>
 
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
         {STATUS_TABS.map((tab) => (

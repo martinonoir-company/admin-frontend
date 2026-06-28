@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { User, Lock, Save, Loader2, Eye, EyeOff, CheckCircle2, ShieldCheck, Store } from "lucide-react";
-import { accountApi, settingsApi, UserProfile } from "@/lib/api";
+import { User, Lock, Save, Loader2, Eye, EyeOff, CheckCircle2, ShieldCheck } from "lucide-react";
+import { accountApi, UserProfile } from "@/lib/api";
 import { Skeleton } from "@/components/Skeleton";
 import { useToast } from "@/lib/toast-context";
 import { format } from "date-fns";
@@ -263,89 +263,13 @@ function PasswordSection() {
   );
 }
 
-// ── Store Settings (super admin) ─────────────────────────────
-
-function StoreSettingsSection() {
-  const { success, error } = useToast();
-  const [minQty, setMinQty] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    settingsApi
-      .get()
-      .then((res) => {
-        if (!cancelled) setMinQty(String(res.data.wholesaleMinQty));
-      })
-      .catch((err) =>
-        error("Failed to load settings", err instanceof Error ? err.message : undefined),
-      )
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [error]);
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    const n = parseInt(minQty, 10);
-    if (!Number.isFinite(n) || n < 1) {
-      error("Invalid value", "Wholesale minimum quantity must be at least 1.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await settingsApi.setWholesaleMinQty(n);
-      setMinQty(String(res.data.wholesaleMinQty));
-      success("Saved", `Wholesale minimum quantity is now ${res.data.wholesaleMinQty}.`);
-    } catch (err) {
-      error("Failed to save", err instanceof Error ? err.message : undefined);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return <div className="space-y-4">{[1, 2].map((i) => <Skeleton key={i} height={44} />)}</div>;
-  }
-
-  return (
-    <form onSubmit={handleSave} className="space-y-5">
-      <div>
-        <h3 className="text-sm font-semibold text-ink-200 mb-1">Wholesale</h3>
-        <p className="text-xs text-ink-500 mb-3">
-          The minimum quantity a customer must order per item to buy at the
-          wholesale price. Applied on the web and mobile storefronts and
-          enforced at checkout.
-        </p>
-        <label className="block text-xs font-medium text-ink-400 mb-1.5">
-          Minimum order quantity
-        </label>
-        <input
-          type="number"
-          min={1}
-          value={minQty}
-          onChange={(e) => setMinQty(e.target.value.replace(/[^0-9]/g, ""))}
-          className="admin-input w-40"
-        />
-      </div>
-      <button type="submit" disabled={saving} className="btn-primary px-6">
-        {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save</>}
-      </button>
-    </form>
-  );
-}
-
 // ── Main Page ────────────────────────────────────────────────
 
 export default function SettingsPage() {
   const { error } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "store">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "security">("profile");
 
   const loadProfile = useCallback(async () => {
     try {
@@ -360,15 +284,9 @@ export default function SettingsPage() {
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  // The Store tab (wholesale config) is super-admin only; the server also
-  // enforces settings:update, so this is a UX gate, not the security gate.
-  const canEditStore = profile?.role === "SUPER_ADMIN";
   const tabs = [
     { key: "profile" as const, label: "Profile", icon: User },
     { key: "security" as const, label: "Security", icon: Lock },
-    ...(canEditStore
-      ? [{ key: "store" as const, label: "Store", icon: Store }]
-      : []),
   ];
 
   return (
@@ -407,8 +325,6 @@ export default function SettingsPage() {
           <p className="text-sm text-ink-500">Unable to load profile.</p>
         ) : activeTab === "profile" ? (
           <ProfileSection profile={profile} onUpdated={setProfile} />
-        ) : activeTab === "store" && canEditStore ? (
-          <StoreSettingsSection />
         ) : (
           <PasswordSection />
         )}
