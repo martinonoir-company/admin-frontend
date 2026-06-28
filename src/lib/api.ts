@@ -196,6 +196,7 @@ export interface OrderItem {
   unitPrice: string;
   lineTotal: string;
   options?: Record<string, string>;
+  isWholesale?: boolean;
 }
 
 export interface ShippingAddress {
@@ -233,6 +234,11 @@ export interface Order {
   statusHistory: StatusHistoryEntry[];
   userId?: string;
   user?: { id: string; email: string; firstName: string; lastName: string } | null;
+  isWholesale?: boolean;
+  dispatchStatus?: "PENDING" | "DISPATCHED" | null;
+  dispatchedAt?: string | null;
+  dispatchedBy?: string | null;
+  shippingOptOut?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -930,14 +936,40 @@ export const ordersApi = {
     limit?: number;
     status?: string;
     userId?: string;
+    wholesale?: boolean;
+    dispatchStatus?: string;
+    requiresDispatch?: boolean;
+    search?: string;
   }) => {
     const q = new URLSearchParams();
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.status) q.set("status", params.status);
     if (params?.userId) q.set("userId", params.userId);
+    if (params?.wholesale !== undefined) q.set("wholesale", String(params.wholesale));
+    if (params?.dispatchStatus) q.set("dispatchStatus", params.dispatchStatus);
+    if (params?.requiresDispatch) q.set("requiresDispatch", "true");
+    if (params?.search) q.set("search", params.search);
     const qs = q.toString();
     return request<ApiResponse<PaginatedResponse<Order>>>(`/orders${qs ? `?${qs}` : ""}`);
+  },
+
+  // Paginated dispatch queue (orders that ship from a branch).
+  dispatchQueue: (params?: {
+    page?: number;
+    limit?: number;
+    dispatchStatus?: string;
+    search?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.dispatchStatus) q.set("dispatchStatus", params.dispatchStatus);
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<ApiResponse<PaginatedResponse<Order>>>(
+      `/orders/dispatch-queue${qs ? `?${qs}` : ""}`,
+    );
   },
 
   get: (id: string) =>
@@ -950,6 +982,13 @@ export const ordersApi = {
     request<ApiResponse<Order>>(`/orders/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status, reason }),
+    }),
+
+  // Mark an order dispatched by scanning its barcode (order number or id).
+  dispatchScan: (ref: string, note?: string) =>
+    request<ApiResponse<Order>>(`/orders/dispatch-scan/${ref}`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
     }),
 };
 
@@ -1751,6 +1790,12 @@ export interface PnlSnapshot {
     vatAmountNgn: number;
     itemsCount: number;
     requestsCount: number;
+  };
+  /** Wholesale sales subset of grossRevenueNgn. */
+  wholesale: {
+    grossRevenueNgn: number;
+    netRevenueNgn: number;
+    ordersCount: number;
   };
   commissions: { amountNgn: number; ordersCount: number };
   payoutsDisbursed: { amountNgn: number; payoutsCount: number };

@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   Tag,
   ClipboardList,
+  Boxes,
   Warehouse,
   Users,
   Building2,
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Products",   href: "/products",   icon: ShoppingBag },
   { label: "Categories", href: "/categories", icon: Tag },
   { label: "Orders",     href: "/orders",     icon: ClipboardList },
+  { label: "Wholesale Orders", href: "/orders/wholesale", icon: Boxes },
   { label: "Payments",   href: "/payments",   icon: CreditCard },
   {
     label: "Refunds",

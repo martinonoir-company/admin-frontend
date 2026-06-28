@@ -84,6 +84,22 @@ export default function OrderDetailPage() {
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl font-bold text-ink-100 font-mono">{order.orderNumber}</h1>
               <StatusBadge status={order.status} size="md" />
+              {order.isWholesale && (
+                <span className="rounded bg-amber-500/15 text-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                  Wholesale
+                </span>
+              )}
+              {order.dispatchStatus && (
+                <span
+                  className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    order.dispatchStatus === "DISPATCHED"
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : "bg-orange-500/15 text-orange-400"
+                  }`}
+                >
+                  {order.dispatchStatus === "DISPATCHED" ? "Dispatched" : "Dispatch pending"}
+                </span>
+              )}
             </div>
             <p className="text-xs text-ink-500 mt-0.5">
               Placed {format(new Date(order.createdAt), "EEEE, d MMMM yyyy 'at' HH:mm")}
@@ -124,7 +140,14 @@ export default function OrderDetailPage() {
                           <Package size={13} className="text-ink-500" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-ink-200 leading-tight">{item.productName}</p>
+                          <p className="text-sm font-medium text-ink-200 leading-tight">
+                            {item.productName}
+                            {item.isWholesale && (
+                              <span className="ml-2 rounded bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide align-middle">
+                                Wholesale
+                              </span>
+                            )}
+                          </p>
                           <p className="text-xs text-ink-500">{item.variantName}</p>
                           {item.options && Object.keys(item.options).length > 0 && (
                             <p className="text-[11px] text-ink-600">
@@ -202,6 +225,17 @@ export default function OrderDetailPage() {
             <Row label="Channel" value={order.channel?.toUpperCase()} />
             <Row label="Currency" value={order.currency} />
             <Row label="Status" value={<StatusBadge status={order.status} />} />
+            <Row label="Type" value={order.isWholesale ? "Wholesale" : "Retail"} />
+            {order.dispatchStatus && (
+              <Row
+                label="Dispatch"
+                value={
+                  order.dispatchStatus === "DISPATCHED"
+                    ? `Dispatched${order.dispatchedAt ? ` · ${format(new Date(order.dispatchedAt), "d MMM, HH:mm")}` : ""}`
+                    : "Pending pickup"
+                }
+              />
+            )}
           </div>
 
           {/* Shipping address */}

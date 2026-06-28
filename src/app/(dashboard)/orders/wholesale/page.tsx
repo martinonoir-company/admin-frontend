@@ -10,6 +10,11 @@ import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { useToast } from "@/lib/toast-context";
 
+/**
+ * Wholesale Orders — a dedicated view of orders with at least one wholesale
+ * line. Mirrors the main orders page but pins the wholesale filter on. Rows
+ * open the standard order detail page (/orders/[id]).
+ */
 const STATUS_TABS: { label: string; value: string }[] = [
   { label: "All", value: "" },
   { label: "Pending", value: "PENDING_PAYMENT" },
@@ -17,12 +22,10 @@ const STATUS_TABS: { label: string; value: string }[] = [
   { label: "Processing", value: "PROCESSING" },
   { label: "Shipped", value: "SHIPPED" },
   { label: "Delivered", value: "DELIVERED" },
-  { label: "Completed", value: "COMPLETED" },
   { label: "Cancelled", value: "CANCELLED" },
-  { label: "Refunded", value: "REFUNDED" },
 ];
 
-export default function OrdersPage() {
+export default function WholesaleOrdersPage() {
   const router = useRouter();
   const { error } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -31,7 +34,6 @@ export default function OrdersPage() {
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
-  const [wholesaleOnly, setWholesaleOnly] = useState(false);
   const [searchInput, setSearchInput] = useState("");
 
   const load = useCallback(async () => {
@@ -41,46 +43,26 @@ export default function OrdersPage() {
         page,
         limit: pageSize,
         status: statusFilter || undefined,
-        wholesale: wholesaleOnly ? true : undefined,
+        wholesale: true,
+        search: searchInput.trim() || undefined,
       });
       setOrders(res.data.items);
       setTotal(res.data.total);
     } catch (err) {
-      error("Failed to load orders", err instanceof Error ? err.message : undefined);
+      error("Failed to load wholesale orders", err instanceof Error ? err.message : undefined);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, wholesaleOnly, error]);
+  }, [page, pageSize, statusFilter, searchInput, error]);
 
   useEffect(() => { load(); }, [load]);
-
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!searchInput.trim()) return;
-    setLoading(true);
-    try {
-      const res = await ordersApi.getByNumber(searchInput.trim().toUpperCase());
-      router.push(`/orders/${res.data.id}`);
-    } catch {
-      error("Order not found", `No order matching "${searchInput.trim()}"`);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const columns: ColumnDef<Order, unknown>[] = [
     {
       id: "orderNumber",
       header: "Order #",
       cell: ({ row }) => (
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-xs font-bold text-primary-400">{row.original.orderNumber}</span>
-          {row.original.isWholesale && (
-            <span className="rounded bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-              Wholesale
-            </span>
-          )}
-        </div>
+        <span className="font-mono text-xs font-bold text-primary-400">{row.original.orderNumber}</span>
       ),
     },
     {
@@ -103,11 +85,17 @@ export default function OrdersPage() {
       },
     },
     {
-      id: "items",
-      header: "Items",
-      cell: ({ row }) => (
-        <span className="text-xs text-ink-400">{row.original.items?.length ?? 0} item{(row.original.items?.length ?? 0) !== 1 ? "s" : ""}</span>
-      ),
+      id: "wholesaleItems",
+      header: "Wholesale items",
+      cell: ({ row }) => {
+        const ws = (row.original.items ?? []).filter((i) => i.isWholesale);
+        const units = ws.reduce((s, i) => s + (i.quantity ?? 0), 0);
+        return (
+          <span className="text-xs text-ink-400">
+            {ws.length} line{ws.length !== 1 ? "s" : ""} · {units} units
+          </span>
+        );
+      },
     },
     {
       id: "total",
@@ -124,30 +112,6 @@ export default function OrdersPage() {
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      accessorKey: "channel",
-      header: "Channel",
-      cell: ({ row }) => (
-        <span className="text-xs text-ink-500 uppercase tracking-wide">{row.original.channel}</span>
-      ),
-    },
-    {
-      id: "dispatch",
-      header: "Dispatch",
-      cell: ({ row }) => {
-        const ds = row.original.dispatchStatus;
-        if (!ds) return <span className="text-xs text-ink-600">—</span>;
-        return ds === "DISPATCHED" ? (
-          <span className="rounded bg-emerald-500/15 text-emerald-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-            Dispatched
-          </span>
-        ) : (
-          <span className="rounded bg-orange-500/15 text-orange-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-            Pending
-          </span>
-        );
-      },
-    },
-    {
       accessorKey: "createdAt",
       header: "Date",
       cell: ({ row }) => (
@@ -160,18 +124,16 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-ink-100">Orders</h1>
-          <p className="text-sm text-ink-500 mt-0.5">{total.toLocaleString()} total orders</p>
+          <h1 className="text-2xl font-bold text-ink-100">Wholesale Orders</h1>
+          <p className="text-sm text-ink-500 mt-0.5">{total.toLocaleString()} wholesale orders</p>
         </div>
         <button onClick={load} className="btn-ghost" title="Refresh">
           <RefreshCw size={15} />
         </button>
       </div>
 
-      {/* Status tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
         {STATUS_TABS.map((tab) => (
           <button
@@ -186,22 +148,13 @@ export default function OrdersPage() {
             {tab.label}
           </button>
         ))}
-        <span className="mx-2 h-4 w-px bg-ink-700 shrink-0" />
-        <button
-          onClick={() => { setWholesaleOnly((v) => !v); setPage(1); }}
-          className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-            wholesaleOnly
-              ? "bg-amber-600 text-white"
-              : "text-ink-400 hover:text-ink-100 hover:bg-ink-700"
-          }`}
-        >
-          Wholesale only
-        </button>
       </div>
 
-      {/* Search */}
       <div className="admin-card p-4">
-        <form onSubmit={handleSearch} className="flex items-center gap-2 max-w-sm">
+        <form
+          onSubmit={(e) => { e.preventDefault(); setPage(1); load(); }}
+          className="flex items-center gap-2 max-w-sm"
+        >
           <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500 pointer-events-none" />
             <input
@@ -218,7 +171,6 @@ export default function OrdersPage() {
         </form>
       </div>
 
-      {/* Table */}
       <div className="admin-card overflow-hidden">
         <DataTable
           data={orders}
@@ -230,7 +182,7 @@ export default function OrdersPage() {
           onPageChange={setPage}
           onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
           onRowClick={(row) => router.push(`/orders/${row.id}`)}
-          emptyMessage="No orders found."
+          emptyMessage="No wholesale orders found."
         />
       </div>
     </div>

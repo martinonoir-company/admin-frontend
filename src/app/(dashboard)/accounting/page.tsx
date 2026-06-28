@@ -11,6 +11,7 @@ import {
   Undo2,
   PiggyBank,
   Coins,
+  Boxes,
 } from "lucide-react";
 import {
   AreaChart,
@@ -84,6 +85,19 @@ export default function AccountingOverview() {
           value={ngnFromKobo(cur?.netRevenueNgn)}
           delta={deltaPct(cur?.netRevenueNgn ?? 0, prev?.netRevenueNgn ?? 0)}
           formula="gross receipts ÷ 1.075"
+          loading={loading}
+        />
+        <Kpi
+          label="Wholesale sales"
+          icon={Boxes}
+          accent="#F59E0B"
+          value={ngnFromKobo(cur?.wholesale?.netRevenueNgn)}
+          delta={deltaPct(
+            cur?.wholesale?.netRevenueNgn ?? 0,
+            prev?.wholesale?.netRevenueNgn ?? 0,
+          )}
+          sub={cur ? `${cur.wholesale?.ordersCount ?? 0} wholesale orders` : ""}
+          formula="wholesale gross receipts ÷ 1.075"
           loading={loading}
         />
         <Kpi
