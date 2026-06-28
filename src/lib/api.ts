@@ -1471,6 +1471,19 @@ export const accountApi = {
     }),
 };
 
+// ── Store settings API ───────────────────────────────────────
+
+export const settingsApi = {
+  get: () =>
+    request<ApiResponse<{ wholesaleMinQty: number }>>("/settings"),
+
+  setWholesaleMinQty: (wholesaleMinQty: number) =>
+    request<ApiResponse<{ wholesaleMinQty: number }>>(
+      "/settings/wholesale-min-qty",
+      { method: "PUT", body: JSON.stringify({ wholesaleMinQty }) },
+    ),
+};
+
 // ── Analytics API ────────────────────────────────────────────
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "12m";
