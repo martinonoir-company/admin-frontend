@@ -155,6 +155,9 @@ export default function AnalyticsPage() {
   const profitDelta = percentDelta(profitNgn, data?.kpis.profitNgnPrev ?? 0);
   const profitItemsCosted = data?.kpis.profitItemsCosted ?? 0;
   const profitItemsTotal = data?.kpis.profitItemsTotal ?? 0;
+  // Net profit = gross profit − promotions applied (NGN-only, same as profit).
+  const netProfitNgn = data?.kpis.netProfitNgn ?? 0;
+  const netProfitDelta = percentDelta(netProfitNgn, data?.kpis.netProfitNgnPrev ?? 0);
   const refundedNgn = data?.kpis.refundedNgn ?? 0;
   const refundedNgnPrev = data?.kpis.refundedNgnPrev ?? 0;
   const refundedDelta = percentDelta(refundedNgn, refundedNgnPrev);
@@ -273,20 +276,16 @@ export default function AnalyticsPage() {
           loading={loading}
         />
         <KpiCard
-          title="Gross Profit (NGN)"
-          value={formatNgn(profitNgn)}
-          subtitle={
-            profitItemsTotal > 0 && profitItemsCosted < profitItemsTotal
-              ? `Selling − cost on sold items · cost set on ${profitItemsCosted}/${profitItemsTotal}`
-              : "Selling price − cost price, on sold items"
-          }
+          title="Net Profit (NGN)"
+          value={formatNgn(netProfitNgn)}
+          subtitle="Gross profit − promotions (discounts + coupons)"
           icon={Wallet}
           iconColor="text-[#34D399]"
           iconBg="bg-[#34D399]/10"
           loading={loading}
           trend={
-            profitDelta != null
-              ? { value: `${Math.abs(profitDelta).toFixed(1)}%`, up: profitDelta >= 0 }
+            netProfitDelta != null
+              ? { value: `${Math.abs(netProfitDelta).toFixed(1)}%`, up: netProfitDelta >= 0 }
               : undefined
           }
         />
@@ -380,6 +379,24 @@ export default function AnalyticsPage() {
           iconColor="text-[#60A5FA]"
           iconBg="bg-[#60A5FA]/10"
           loading={loading}
+        />
+        <KpiCard
+          title="Gross Profit (NGN)"
+          value={formatNgn(profitNgn)}
+          subtitle={
+            profitItemsTotal > 0 && profitItemsCosted < profitItemsTotal
+              ? `Selling − cost (before promotions) · cost set on ${profitItemsCosted}/${profitItemsTotal}`
+              : "Selling − cost price, before promotions"
+          }
+          icon={Wallet}
+          iconColor="text-[#6EE7B7]"
+          iconBg="bg-[#6EE7B7]/10"
+          loading={loading}
+          trend={
+            profitDelta != null
+              ? { value: `${Math.abs(profitDelta).toFixed(1)}%`, up: profitDelta >= 0 }
+              : undefined
+          }
         />
       </div>
 

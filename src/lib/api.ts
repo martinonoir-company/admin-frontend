@@ -1510,6 +1510,9 @@ export interface AnalyticsSummary {
     /** Sold order-items with a cost recorded / total — cost-data coverage. */
     profitItemsCosted: number;
     profitItemsTotal: number;
+    /** Net profit (minor units) = gross profit − promotions applied. */
+    netProfitNgn: number;
+    netProfitNgnPrev: number;
     refundedNgn: number;
     refundedNgnPrev: number;
     refundedItemsCount: number;
