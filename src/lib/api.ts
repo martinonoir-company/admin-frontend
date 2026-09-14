@@ -1514,6 +1514,13 @@ export interface AnalyticsSummary {
     refundedNgnPrev: number;
     refundedItemsCount: number;
     refundedRequestsCount: number;
+    /** Promotions (discounts + coupons) applied to real sales (minor units). */
+    promotionsNgn: number;
+    promotionsUsd: number;
+    promotionsNgnPrev: number;
+    promotionsCouponNgn: number;
+    promotionsManualNgn: number;
+    promotionsDiscountedOrders: number;
   };
   trend: Array<{ date: string; ngn: number; usd: number; orders: number }>;
   topProducts: Array<{
@@ -1525,6 +1532,7 @@ export interface AnalyticsSummary {
   }>;
   statusBreakdown: Array<{ status: string; count: number }>;
   channelBreakdown: Array<{ channel: string; count: number; revenueNgn: number; revenueUsd: number }>;
+  promotionChannelBreakdown: Array<{ channel: string; amountNgn: number; amountUsd: number; orders: number }>;
   customerTrend: Array<{ date: string; count: number }>;
 }
 

@@ -30,6 +30,7 @@ import {
   Clock,
   RefreshCw,
   Undo2,
+  Tag,
 } from "lucide-react";
 import {
   analyticsApi,
@@ -159,6 +160,15 @@ export default function AnalyticsPage() {
   const refundedDelta = percentDelta(refundedNgn, refundedNgnPrev);
   const refundedItems = data?.kpis.refundedItemsCount ?? 0;
   const refundedRequests = data?.kpis.refundedRequestsCount ?? 0;
+  // Promotions (discounts + coupons) applied. Respects the NGN/USD toggle;
+  // the coupon/manual split is NGN-only (how the server splits it).
+  const promotions = data?.kpis[currency === "NGN" ? "promotionsNgn" : "promotionsUsd"] ?? 0;
+  const promotionsPrev = data?.kpis.promotionsNgnPrev ?? 0;
+  const promotionsDelta = percentDelta(data?.kpis.promotionsNgn ?? 0, promotionsPrev);
+  const promotionsCouponNgn = data?.kpis.promotionsCouponNgn ?? 0;
+  const promotionsManualNgn = data?.kpis.promotionsManualNgn ?? 0;
+  const promotionsDiscountedOrders = data?.kpis.promotionsDiscountedOrders ?? 0;
+  const promoChannels = data?.promotionChannelBreakdown ?? [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -300,6 +310,24 @@ export default function AnalyticsPage() {
                   // the arrow polarity vs revenue.
                   up: refundedDelta < 0,
                 }
+              : undefined
+          }
+        />
+        <KpiCard
+          title={`Promotions (${currency})`}
+          value={fmtMoney(promotions)}
+          subtitle={
+            promotionsDiscountedOrders === 0
+              ? "No discounts or coupons in this period"
+              : `${promotionsDiscountedOrders} order${promotionsDiscountedOrders === 1 ? "" : "s"} · coupons ${formatNgn(promotionsCouponNgn)} / manual ${formatNgn(promotionsManualNgn)}`
+          }
+          icon={Tag}
+          iconColor="text-[#F472B6]"
+          iconBg="bg-[#F472B6]/10"
+          loading={loading}
+          trend={
+            promotionsDelta != null
+              ? { value: `${Math.abs(promotionsDelta).toFixed(1)}%`, up: promotionsDelta >= 0 }
               : undefined
           }
         />
@@ -592,6 +620,49 @@ export default function AnalyticsPage() {
                 <Bar dataKey="orders" fill={COLOR_PRIMARY} radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        )}
+      </ChartCard>
+
+      {/* Promotions applied, by channel */}
+      <ChartCard
+        title="Promotions applied by channel"
+        subtitle={`Discounts + coupons on paid orders (${currency}). Web & mobile report together as Storefront.`}
+      >
+        {loading ? (
+          <div className="h-24 flex items-center justify-center text-ink-500 text-sm">Loading…</div>
+        ) : promoChannels.length === 0 ? (
+          <div className="h-24 flex items-center justify-center text-ink-500 text-sm">
+            No promotions applied in this period
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Channel</th>
+                  <th className="text-right">Discounted orders</th>
+                  <th className="text-right">Amount ({currency})</th>
+                </tr>
+              </thead>
+              <tbody>
+                {promoChannels.map((c) => (
+                  <tr key={c.channel}>
+                    <td className="text-ink-200 font-medium">
+                      {CHANNEL_LABELS[c.channel] ?? c.channel}
+                    </td>
+                    <td className="text-right">
+                      <span className="font-mono font-semibold text-ink-100">{c.orders}</span>
+                    </td>
+                    <td className="text-right">
+                      <span className="font-mono text-ink-300">
+                        {fmtMoney(currency === "NGN" ? c.amountNgn : c.amountUsd)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </ChartCard>
