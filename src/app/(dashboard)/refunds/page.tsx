@@ -147,6 +147,19 @@ export default function RefundsPage() {
     }
   }, []);
 
+  // Open the detail drawer for a refund. The list endpoint does NOT return the
+  // refund's `items` (only the order), so showing the raw list row leaves the
+  // Items table empty. Show the list row immediately for a snappy open, then
+  // fetch the full record (GET /refunds/:id includes items + originalPayment)
+  // and swap it in.
+  const openDetail = useCallback(
+    async (row: RefundRequestView) => {
+      setDetail(row);
+      await refreshDetail(row.id);
+    },
+    [refreshDetail],
+  );
+
   const handleApprove = useCallback(async () => {
     if (!detail) return;
     // Convert the edited naira amount → minor units only if it changed.
@@ -354,7 +367,7 @@ export default function RefundsPage() {
                 items.map((r) => (
                   <tr
                     key={r.id}
-                    onClick={() => setDetail(r)}
+                    onClick={() => openDetail(r)}
                     className="hover:bg-ink-800 cursor-pointer"
                   >
                     <td className="px-4 py-3 text-ink-300 whitespace-nowrap">
