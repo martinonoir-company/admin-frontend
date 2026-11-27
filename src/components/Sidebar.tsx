@@ -18,6 +18,7 @@ import {
   Undo2,
   Megaphone,
   Calculator,
+  Star,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -47,6 +48,13 @@ const NAV_ITEMS: NavItem[] = [
     href: "/refunds",
     icon: Undo2,
     // Only super-admin roles can view + process refunds.
+    allowedRoles: ["SUPER_ADMIN", "COMPANY_SUPER_ADMIN"],
+  },
+  {
+    label: "Ratings",
+    href: "/ratings",
+    icon: Star,
+    // Only super-admin roles can view order ratings.
     allowedRoles: ["SUPER_ADMIN", "COMPANY_SUPER_ADMIN"],
   },
   {

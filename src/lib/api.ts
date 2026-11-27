@@ -928,6 +928,45 @@ export const refundsApi = {
     }),
 };
 
+// ── Order ratings API ────────────────────────────────────────
+
+export interface OrderRatingView {
+  id: string;
+  orderId: string;
+  userId: string;
+  stars: number;
+  comment?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  } | null;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    channel: string;
+    currency: string;
+    grandTotal: number;
+  } | null;
+}
+
+export const ratingsApi = {
+  list: (params?: { page?: number; limit?: number; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<ApiResponse<PaginatedResponse<OrderRatingView>>>(
+      `/ratings${qs ? `?${qs}` : ""}`,
+    );
+  },
+};
+
 // ── Orders API ───────────────────────────────────────────────
 
 export const ordersApi = {
